@@ -10,14 +10,15 @@ import { ShieldCheck, UserPlus, CheckCircle2, ArrowRight } from 'lucide-react';
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
-  const { allRoles, loginAsRole } = useAuth();
+  const { allRoles, registerUser, loginAsRole, loading } = useAuth();
   const { districts, blocks, gramPanchayats, villages, handleDistrictChange, handleBlockChange } = useGeoScope();
 
-  const [roleType, setRoleType] = useState('CITIZEN'); // CITIZEN, VENDOR, DRIVER, WORKER, FSTP_OPERATOR
+  const [roleType, setRoleType] = useState('CITIZEN'); // CITIZEN, VENDOR_ADMIN, DRIVER, SANITATION_WORKER, FSTP_OPERATOR
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     email: '',
+    password: '',
     district: '',
     block: '',
     gp: '',
@@ -26,14 +27,27 @@ export const RegisterPage = () => {
   });
 
   const [isSubmittedPending, setIsSubmittedPending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (roleType === 'CITIZEN') {
-      loginAsRole(allRoles.CITIZEN);
-      navigate('/book');
+    setErrorMsg('');
+
+    const payload = {
+      ...formData,
+      role: roleType,
+      password: formData.password || `${formData.phone.slice(-4)}@Fssm2026`
+    };
+
+    const res = await registerUser(payload);
+    if (res?.success) {
+      if (roleType === 'CITIZEN') {
+        navigate('/book');
+      } else {
+        setIsSubmittedPending(true);
+      }
     } else {
-      setIsSubmittedPending(true);
+      setErrorMsg(res?.message || 'Registration failed. Please check your details.');
     }
   };
 
@@ -93,6 +107,12 @@ export const RegisterPage = () => {
               </select>
             </div>
 
+            {errorMsg && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">
+                {errorMsg}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
                 <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">Full Name</label>
@@ -100,7 +120,7 @@ export const RegisterPage = () => {
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-teal-600"
+                  className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
                   required
                 />
               </div>
@@ -113,6 +133,17 @@ export const RegisterPage = () => {
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-slate-900 dark:text-white font-mono outline-none focus:border-teal-600"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">Password</label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Leave empty for auto-generated OTP"
+                  className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
                 />
               </div>
 

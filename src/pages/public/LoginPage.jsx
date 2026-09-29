@@ -11,7 +11,7 @@ import { ShieldCheck, Smartphone, KeyRound, UserCheck, ArrowRight, CheckCircle2 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { loginAsRole, loginWithCredentials, allRoles, allMockUsers } = useAuth();
+  const { loginAsRole, loginWithCredentials, loginWithCitizenOtp, allRoles, allMockUsers, loading } = useAuth();
 
   const [authMode, setAuthMode] = useState('STAFF'); // CITIZEN_OTP or STAFF
   const [phone, setPhone] = useState('9826198765');
@@ -19,22 +19,33 @@ export const LoginPage = () => {
   const [otp, setOtp] = useState('');
   const [email, setEmail] = useState('admin.fssm@cg.gov.in');
   const [password, setPassword] = useState('Admin@2026');
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleSendOtp = () => {
     setOtpSent(true);
-    setOtp('123456'); // Auto-fill demo OTP
+    setOtp('123456'); // Demo OTP
   };
 
-  const handleCitizenLogin = (e) => {
+  const handleCitizenLogin = async (e) => {
     e.preventDefault();
-    loginAsRole(allRoles.CITIZEN);
-    navigate('/app');
+    setErrorMsg('');
+    const res = await loginWithCitizenOtp(phone, otp);
+    if (res?.success) {
+      navigate('/app');
+    } else {
+      setErrorMsg(res?.message || 'OTP verification failed');
+    }
   };
 
-  const handleStaffLogin = (e) => {
+  const handleStaffLogin = async (e) => {
     e.preventDefault();
-    loginWithCredentials(email, password);
-    navigate('/app');
+    setErrorMsg('');
+    const res = await loginWithCredentials(email, password);
+    if (res?.success) {
+      navigate('/app');
+    } else {
+      setErrorMsg(res?.message || 'Invalid credentials');
+    }
   };
 
   return (
