@@ -496,8 +496,37 @@ export const AppShell = ({ children }) => {
         </header>
 
         {/* Page Content Viewport */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-cg-navy">
-          {children}
+        <main className="flex-1 overflow-y-auto flex flex-col justify-between bg-slate-50 dark:bg-cg-navy">
+          <div className="p-4 sm:p-6 lg:p-8 flex-1">
+            {children}
+          </div>
+
+          {/* Operations & Monitoring Dashboard Copyright Footer */}
+          <footer className="w-full mt-auto bg-white/90 dark:bg-[#032238]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-white/10 py-3 px-4 sm:px-6 transition-colors shadow-xs">
+            <div className="max-w-[1700px] mx-auto flex flex-col md:flex-row items-center justify-between gap-2.5 text-xs">
+              {/* Partner Emblems & Department Attribution */}
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                <div className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/10">
+                  <img src="/logo/Chhattisgarh.webp" alt="Chhattisgarh" className="h-4 w-auto object-contain" title="Government of Chhattisgarh" />
+                  <span className="h-3 w-px bg-slate-300 dark:bg-white/20"></span>
+                  <img src="/logo/Swachh_Bharat_Mission_Logo.png" alt="SBM-G" className="h-3.5 w-auto object-contain" title="Swachh Bharat Mission (Gramin)" />
+                  <span className="h-3 w-px bg-slate-300 dark:bg-white/20"></span>
+                  <img src="/logo/unicef.webp" alt="UNICEF" className="h-3.5 w-auto object-contain" title="Supported by UNICEF" />
+                </div>
+                <span className="hidden xl:inline text-slate-400 dark:text-slate-500">•</span>
+                <span className="hidden lg:inline font-sans text-slate-600 dark:text-slate-400 font-medium">
+                  Department of Panchayat & Rural Development, Govt. of Chhattisgarh
+                </span>
+              </div>
+
+              {/* Exact Copyright Notice */}
+              <div className="text-center md:text-right text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="font-medium tracking-tight">
+                  © Copyright © United Nations Children's Fund (UNICEF) Chhattisgarh | Designed by Raj Yamgar @UNICEF 2026, India. All rights reserved.
+                </p>
+              </div>
+            </div>
+          </footer>
         </main>
       </div>
     </div>
