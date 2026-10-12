@@ -20,13 +20,17 @@ import {
   Truck,
   Sparkles,
   Smartphone,
-  ShieldCheck
+  ShieldCheck,
+  Factory
 } from 'lucide-react';
+import { LocationPicker } from '../../components/maps/LocationPicker';
+import { findNearestFstp } from '../../services/locationService';
+import { notifySuccess, notifyWarning, notifyInteractive } from '../../services/toastService';
 
 export const CitizenBookingPage = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { createRequest } = useFsm();
+  const { createRequest, fstps } = useFsm();
   const { currentUser } = useAuth();
 
   const {
@@ -55,6 +59,8 @@ export const CitizenBookingPage = () => {
     gp: selectedGp || 'Mandir Hasaud (124805)',
     village: selectedVillage || 'Mandir Hasaud (444102)',
     habitation: 'Near Primary School, Ward 02',
+    latitude: 21.2385,
+    longitude: 81.7120,
     isEmergency: false,
     scheduledDate: new Date().toISOString().split('T')[0],
     tankType: 'CONVENTIONAL_TWO_CHAMBER',
@@ -66,10 +72,13 @@ export const CitizenBookingPage = () => {
 
   const [createdRequestResult, setCreatedRequestResult] = useState(null);
 
+  // Compute nearest FSTP in real-time based on pinned GPS location
+  const nearestFstp = findNearestFstp(formData.latitude, formData.longitude, fstps);
+
   // Dynamic price calculation
   const calculatePrice = () => {
     const base = 800;
-    const estDistanceKm = 8;
+    const estDistanceKm = nearestFstp?.distanceKm ? Math.max(1, Math.round(nearestFstp.distanceKm)) : 8;
     const ratePerKm = 25;
     const tankMultiplier =
       formData.tankVolumeLitres <= 1500
@@ -90,6 +99,12 @@ export const CitizenBookingPage = () => {
   const suggestedVehicle = formData.roadWidthMeters < 3.5 ? 'TRACTOR_MOUNTED_UNIT' : 'HEAVY_VACUUM_TRUCK';
 
   const handleNext = () => {
+    if (currentStep === 1) {
+      if (!formData.citizenName || !formData.citizenPhone) {
+        notifyWarning('Please provide applicant name and contact phone number.', 'Missing Information');
+        return;
+      }
+    }
     setCurrentStep((prev) => prev + 1);
   };
 
@@ -104,12 +119,25 @@ export const CitizenBookingPage = () => {
       block: selectedBlock || formData.block,
       gp: selectedGp || formData.gp,
       village: selectedVillage || formData.village,
-      estimatedCost: estimatedPrice
+      estimatedCost: estimatedPrice,
+      latitude: formData.latitude,
+      longitude: formData.longitude,
+      targetFstpId: nearestFstp?.id || null,
+      targetFstpName: nearestFstp?.name || null,
+      distanceToFstpKm: nearestFstp?.distanceKm || null
     };
 
     const res = await createRequest(payload);
     setCreatedRequestResult(res);
     setCurrentStep(5);
+
+    notifyInteractive({
+      title: `🎉 Booking Request Placed! #${res.requestNo}`,
+      message: `Assigned to nearest plant: ${nearestFstp?.name || 'Local Facility'} (${nearestFstp?.distanceKm || 8} km away). Estimated cost: ₹${estimatedPrice}.`,
+      actionLabel: 'View in Ledger',
+      onAction: () => navigate('/app/requests'),
+      type: 'success'
+    });
   };
 
   return (
@@ -254,6 +282,21 @@ export const CitizenBookingPage = () => {
                   onChange={(e) => setFormData({ ...formData, habitation: e.target.value })}
                   className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
                   placeholder="e.g. Near Panchayat Bhavan / Ward 04"
+                />
+              </div>
+
+              {/* Interactive GPS Location Pin Dropper on Map */}
+              <div className="pt-2 border-t border-slate-200 dark:border-white/10">
+                <LocationPicker
+                  lat={formData.latitude}
+                  lng={formData.longitude}
+                  district={selectedDistrict || formData.district}
+                  fstps={fstps}
+                  onLocationChange={(newLat, newLng) =>
+                    setFormData((prev) => ({ ...prev, latitude: newLat, longitude: newLng }))
+                  }
+                  label="Pin Exact Household GPS Location on Map"
+                  height="260px"
                 />
               </div>
 
@@ -447,16 +490,35 @@ export const CitizenBookingPage = () => {
 
         {/* Step 4: Pricing & Quote */}
         {currentStep === 4 && (
-          <GlassCard title="4. Transparent GP Tariff Breakdown" moduleTag="PRICING ENGINE">
+          <GlassCard title="4. Transparent GP Tariff & Nearest Facility Routing" moduleTag="PRICING & ROUTING">
             <div className="space-y-5">
+              {/* Nearest FSTP Routing Banner */}
+              {nearestFstp && (
+                <div className="p-3.5 rounded-2xl bg-teal-50/90 dark:bg-teal-950/40 border border-teal-300 dark:border-teal-500/40 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold">
+                      <Factory size={16} />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-mono font-bold text-teal-800 dark:text-teal-300">AUTO-ASSIGNED DISPOSAL FACILITY</div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">{nearestFstp.name}</div>
+                    </div>
+                  </div>
+                  <div className="text-right font-mono text-xs">
+                    <span className="text-teal-700 dark:text-teal-400 font-bold">{nearestFstp.distanceKm} km away</span>
+                    <div className="text-[10px] text-slate-500">{nearestFstp.type} ({nearestFstp.capacityKLD} KLD)</div>
+                  </div>
+                </div>
+              )}
+
               <div className="p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3 font-mono text-xs">
                 <div className="flex justify-between text-slate-600 dark:text-slate-300">
                   <span>Base Desludging Tariff (up to 5 km)</span>
                   <span>₹800.00</span>
                 </div>
                 <div className="flex justify-between text-slate-600 dark:text-slate-300">
-                  <span>Distance Haul Surcharge (approx 8 km)</span>
-                  <span>₹75.00</span>
+                  <span>Distance Haul Surcharge ({nearestFstp?.distanceKm || 8} km to FSTP)</span>
+                  <span>₹{Math.max(0, Math.round(((nearestFstp?.distanceKm || 8) - 5) * 25))}.00</span>
                 </div>
                 <div className="flex justify-between text-slate-600 dark:text-slate-300">
                   <span>Tank Capacity Multiplier ({formData.tankVolumeLitres} L)</span>
@@ -560,8 +622,12 @@ export const CitizenBookingPage = () => {
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 max-w-sm mx-auto text-left font-mono text-xs space-y-1.5 text-slate-700 dark:text-slate-300">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 max-w-md mx-auto text-left font-mono text-xs space-y-1.5 text-slate-700 dark:text-slate-300">
               <div>VILLAGE: <strong className="text-slate-900 dark:text-white">{createdRequestResult.village}</strong></div>
+              <div>GPS LOCATION: <strong className="text-slate-900 dark:text-white">{createdRequestResult.latitude}, {createdRequestResult.longitude}</strong></div>
+              {createdRequestResult.targetFstpName && (
+                <div>TARGET FSTP: <strong className="text-purple-700 dark:text-purple-300">{createdRequestResult.targetFstpName} ({createdRequestResult.distanceToFstpKm} km)</strong></div>
+              )}
               <div>DATE: <strong className="text-slate-900 dark:text-white">{createdRequestResult.scheduledDate}</strong></div>
               <div>ESTIMATED TARIFF: <strong className="text-teal-700 dark:text-teal-400">₹{createdRequestResult.estimatedCost}</strong></div>
               <div>PAYMENT: <span className="text-sky-700 dark:text-sky-300 font-semibold">{createdRequestResult.paymentMethod}</span></div>
@@ -572,7 +638,7 @@ export const CitizenBookingPage = () => {
                 onClick={() => navigate('/app/requests')}
                 className="px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-clean-md"
               >
-                Track Live in Control Room
+                Track Live in Operations Portal
               </button>
               <button
                 onClick={() => {

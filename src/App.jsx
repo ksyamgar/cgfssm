@@ -33,9 +33,33 @@ import { CmsPage } from './pages/app/CmsPage';
 import { SettingsPage } from './pages/app/SettingsPage';
 import { ProfilePage } from './pages/app/ProfilePage';
 
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { useTheme } from './context/ThemeContext';
+
+const ThemedToastContainer = () => {
+  const { isDarkMode } = useTheme();
+  return (
+    <ToastContainer
+      position="top-right"
+      autoClose={3500}
+      hideProgressBar={false}
+      newestOnTop
+      closeOnClick
+      rtl={false}
+      pauseOnFocusLoss
+      draggable
+      pauseOnHover
+      theme={isDarkMode ? 'dark' : 'light'}
+      className="text-xs font-sans"
+    />
+  );
+};
+
 export const App = () => {
   return (
     <ThemeProvider>
+      <ThemedToastContainer />
       <LanguageProvider>
         <AuthProvider>
           <GeoScopeProvider>

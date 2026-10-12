@@ -17,6 +17,12 @@ export default defineConfig({
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false
+      },
+      '/traq-api': {
+        target: 'https://app.traqindia.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/traq-api/, ''),
+        secure: false
       }
     }
   }

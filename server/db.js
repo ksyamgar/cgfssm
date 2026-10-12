@@ -95,37 +95,68 @@ export const initDatabase = async () => {
       CREATE TABLE IF NOT EXISTS fsm_requests (
         id TEXT PRIMARY KEY,
         request_no TEXT UNIQUE NOT NULL,
+        citizen_name TEXT NOT NULL,
+        citizen_phone TEXT NOT NULL,
         district TEXT NOT NULL,
         block TEXT NOT NULL,
         gp TEXT NOT NULL,
         village TEXT NOT NULL,
+        habitation TEXT,
+        tank_type TEXT DEFAULT 'CONVENTIONAL_TWO_CHAMBER',
+        tank_volume_litres INTEGER DEFAULT 3000,
+        road_width_meters REAL DEFAULT 4.5,
+        distance_from_road_meters REAL DEFAULT 15,
+        is_emergency INTEGER DEFAULT 0,
+        scheduled_date TEXT,
         status TEXT NOT NULL,
-        citizen_name TEXT NOT NULL,
-        citizen_phone TEXT NOT NULL,
-        property_type TEXT DEFAULT 'RESIDENTIAL',
-        containment_type TEXT DEFAULT 'SEPTIC_TANK',
-        distance_km REAL DEFAULT 5.0,
-        estimated_fee REAL DEFAULT 1200.0,
+        estimated_cost REAL DEFAULT 1200.0,
+        payment_method TEXT DEFAULT 'UPI',
+        payment_status TEXT DEFAULT 'PENDING',
+        assigned_vendor_id TEXT,
+        assigned_vendor_name TEXT,
         assigned_vehicle_id TEXT,
+        assigned_vehicle_no TEXT,
         assigned_driver_id TEXT,
+        assigned_driver_name TEXT,
+        assigned_worker_id TEXT,
+        assigned_worker_name TEXT,
+        target_fstp_id TEXT,
+        target_fstp_name TEXT,
+        lat REAL,
+        lng REAL,
         otp TEXT,
+        decanted_volume_litres INTEGER,
+        rating INTEGER,
+        feedback_text TEXT,
+        history_json TEXT,
+        ppe_checklist_json TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (assigned_driver_id) REFERENCES users(id) ON DELETE SET NULL
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS vehicles (
         id TEXT PRIMARY KEY,
-        registration_no TEXT UNIQUE NOT NULL,
+        reg_no TEXT UNIQUE NOT NULL,
+        type TEXT DEFAULT 'VACUUM_TRUCK',
+        capacity_litres INTEGER DEFAULT 4000,
+        vendor_id TEXT,
+        vendor_name TEXT,
+        driver_id TEXT,
         driver_name TEXT,
         driver_phone TEXT,
-        capacity_litres INTEGER DEFAULT 4000,
-        district TEXT NOT NULL,
+        gps_device_id TEXT,
         lat REAL,
         lng REAL,
-        speed REAL DEFAULT 0,
+        speed_kmh REAL DEFAULT 0,
+        heading_deg INTEGER DEFAULT 0,
         status TEXT DEFAULT 'AVAILABLE',
+        puc_expiry TEXT,
+        insurance_expiry TEXT,
+        fitness_expiry TEXT,
+        district TEXT NOT NULL,
+        assigned_request_id TEXT,
         battery INTEGER DEFAULT 95,
+        has_gps_device INTEGER DEFAULT 1,
         last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -136,30 +167,44 @@ export const initDatabase = async () => {
         district TEXT NOT NULL,
         block TEXT NOT NULL,
         capacity_kld REAL DEFAULT 15.0,
-        current_load_kld REAL DEFAULT 6.5,
+        current_volume_kld REAL DEFAULT 6.5,
+        status TEXT DEFAULT 'OPERATIONAL',
         lat REAL,
         lng REAL,
-        status TEXT DEFAULT 'OPERATIONAL'
+        radius_meters INTEGER DEFAULT 300,
+        operator_name TEXT,
+        operator_phone TEXT,
+        compost_stock_tons REAL DEFAULT 0,
+        treated_water_stock_kl REAL DEFAULT 0,
+        connected_gps_count INTEGER DEFAULT 0
       );
 
       CREATE TABLE IF NOT EXISTS vendors (
         id TEXT PRIMARY KEY,
-        company_name TEXT NOT NULL,
+        name TEXT NOT NULL,
+        reg_no TEXT UNIQUE NOT NULL,
         contact_person TEXT,
         phone TEXT NOT NULL,
         email TEXT,
-        district TEXT NOT NULL,
-        fleet_count INTEGER DEFAULT 1,
-        status TEXT DEFAULT 'ACTIVE',
+        status TEXT DEFAULT 'EMPLANELED',
+        upi_vpa TEXT,
+        districts_covered_json TEXT,
+        active_vehicles INTEGER DEFAULT 1,
+        sla_score REAL DEFAULT 95.0,
+        total_trips_completed INTEGER DEFAULT 0,
+        revenue_total_inr REAL DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS tariffs (
         id TEXT PRIMARY KEY,
         district TEXT UNIQUE NOT NULL,
-        base_fee_up_to_5km REAL DEFAULT 1200.0,
-        per_km_extra REAL DEFAULT 35.0,
-        commercial_multiplier REAL DEFAULT 1.5,
+        base_price_inr REAL DEFAULT 800.0,
+        base_distance_km REAL DEFAULT 5.0,
+        rate_per_additional_km_inr REAL DEFAULT 25.0,
+        emergency_multiplier REAL DEFAULT 1.25,
+        gp_administrative_fee_inr REAL DEFAULT 100.0,
+        tank_multipliers_json TEXT,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -168,27 +213,42 @@ export const initDatabase = async () => {
         entity_id TEXT,
         entity_type TEXT,
         action TEXT NOT NULL,
-        actor_id TEXT,
         actor_name TEXT,
         actor_role TEXT,
+        ip TEXT,
         details TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
-      CREATE TABLE IF NOT EXISTS trips (
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value_json TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS cms_articles (
         id TEXT PRIMARY KEY,
-        trip_no TEXT UNIQUE NOT NULL,
-        request_id TEXT NOT NULL,
-        vehicle_id TEXT NOT NULL,
-        driver_id TEXT,
-        status TEXT NOT NULL,
-        departure_time DATETIME,
-        arrival_time DATETIME,
-        discharge_time DATETIME,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (request_id) REFERENCES fsm_requests(id) ON DELETE CASCADE
+        title TEXT NOT NULL,
+        category TEXT,
+        author TEXT,
+        date TEXT,
+        summary TEXT,
+        content TEXT,
+        views INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'PUBLISHED'
       );
     `);
+
+    // Ensure has_gps_device column exists if table was previously created
+    try {
+      const columns = await dbAll("PRAGMA table_info(vehicles)");
+      const hasGpsCol = columns.some(c => c.name === 'has_gps_device');
+      if (!hasGpsCol) {
+        await dbExec("ALTER TABLE vehicles ADD COLUMN has_gps_device INTEGER DEFAULT 1");
+      }
+    } catch {
+      // Column may already exist
+    }
 
     console.log('✅ SQLite Tables & Relations initialized successfully');
   } catch (err) {

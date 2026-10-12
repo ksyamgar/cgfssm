@@ -4,6 +4,7 @@ import { GlassCard } from '../../components/common/GlassCard';
 import { DataTag } from '../../components/common/DataTag';
 import { Database, ShieldAlert, Download, RefreshCw, CheckCircle2, Trash2, HardDrive } from 'lucide-react';
 import { getStorageData, setStorageData, initializeStorage, STORAGE_KEYS } from '../../services/storageService';
+import { notifySuccess, notifyWarning } from '../../services/toastService';
 
 export const DatabaseManagerPage = () => {
   const { currentRole } = useAuth();
@@ -42,6 +43,7 @@ export const DatabaseManagerPage = () => {
     downloadAnchor.click();
     downloadAnchor.remove();
 
+    notifySuccess('Full JSON database backup downloaded successfully.', 'Backup Generated');
     setFeedbackMsg('Full JSON database backup downloaded successfully.');
     setTimeout(() => setFeedbackMsg(''), 3000);
   };
@@ -49,6 +51,7 @@ export const DatabaseManagerPage = () => {
   const handleReSeed = () => {
     localStorage.clear();
     initializeStorage();
+    notifyWarning('Database re-seeded with fresh Chhattisgarh SBM-G baseline datasets. Refreshing...', 'Database Re-seeded');
     setFeedbackMsg('Database re-seeded with fresh Chhattisgarh SBM-G baseline datasets.');
     setTimeout(() => {
       setFeedbackMsg('');

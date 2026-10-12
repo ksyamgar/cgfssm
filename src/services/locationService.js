@@ -185,3 +185,57 @@ export const extractLgdCode = (nameWithLgd) => {
   const match = nameWithLgd.match(/\((\d+)\)$/);
   return match ? match[1] : '';
 };
+
+// Calculate distance in kilometers between two GPS points using Haversine formula
+export const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Number((R * c).toFixed(2));
+};
+
+// Find the closest operational FSTP / STP facility to a given coordinate
+export const findNearestFstp = (targetLat, targetLng, fstps = []) => {
+  if (!targetLat || !targetLng || !fstps || fstps.length === 0) return null;
+  let nearest = null;
+  let minDistance = Infinity;
+
+  fstps.forEach((fstp) => {
+    if (fstp.lat && fstp.lng && fstp.status !== 'DECOMMISSIONED') {
+      const dist = calculateDistanceKm(targetLat, targetLng, fstp.lat, fstp.lng);
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearest = { ...fstp, distanceKm: dist };
+      }
+    }
+  });
+
+  return nearest;
+};
+
+// Find closest available vehicle to a target location
+export const findNearestVehicle = (targetLat, targetLng, vehicles = []) => {
+  if (!targetLat || !targetLng || !vehicles || vehicles.length === 0) return null;
+  let nearest = null;
+  let minDistance = Infinity;
+
+  vehicles.forEach((veh) => {
+    if (veh.currentLat && veh.currentLng && veh.status !== 'SUSPENDED' && veh.status !== 'MAINTENANCE') {
+      const dist = calculateDistanceKm(targetLat, targetLng, veh.currentLat, veh.currentLng);
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearest = { ...veh, distanceKm: dist };
+      }
+    }
+  });
+
+  return nearest;
+};

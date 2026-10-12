@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useGeoScope } from '../../context/GeoScopeContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useFsm } from '../../context/FsmContext';
 import { DataTag } from './DataTag';
 import {
@@ -30,18 +31,25 @@ import {
   Wifi,
   WifiOff,
   UserCheck,
-  CheckCircle2
+  CheckCircle2,
+  Home,
+  User,
+  Sun,
+  Moon,
+  ChevronDown
 } from 'lucide-react';
 
 export const AppShell = ({ children }) => {
   const { currentUser, currentRole, currentRoleConfig, logout } = useAuth();
-  const { t, lang } = useLanguage();
+  const { t, lang, setLang, languages } = useLanguage();
+  const { isDarkMode, toggleTheme } = useTheme();
   const { isOnline, pendingSyncCount } = useFsm();
   const location = useLocation();
   const navigate = useNavigate();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLangOpen, setIsLangOpen] = useState(false);
 
   const {
     districts,
@@ -62,7 +70,7 @@ export const AppShell = ({ children }) => {
   // Navigation definition with role gates
   const navSections = [
     {
-      label: 'OPERATIONS',
+      label: t('section_operations') || 'OPERATIONS',
       items: [
         {
           label: t('nav_app'),
@@ -91,7 +99,7 @@ export const AppShell = ({ children }) => {
       ]
     },
     {
-      label: 'RESOURCES & ENTITIES',
+      label: t('section_resources') || 'RESOURCES & ENTITIES',
       items: [
         {
           label: t('nav_fleet'),
@@ -103,7 +111,7 @@ export const AppShell = ({ children }) => {
           label: t('nav_people'),
           path: '/app/people',
           icon: Users,
-          roles: ['SUPER_ADMIN', 'STATE_OFFICER', 'DISTRICT_COORDINATOR', 'BLOCK_COORDINATOR', 'VENDOR_ADMIN']
+          roles: ['SUPER_ADMIN', 'STATE_OFFICER', 'DISTRICT_COORDINATOR', 'BLOCK_COORDINATOR', 'GP_OPERATOR', 'VENDOR_ADMIN', 'AUDITOR']
         },
         {
           label: t('nav_fstp'),
@@ -120,7 +128,7 @@ export const AppShell = ({ children }) => {
       ]
     },
     {
-      label: 'ANALYTICS & MASTERS',
+      label: t('section_analytics') || 'ANALYTICS & MASTERS',
       items: [
         {
           label: t('nav_reports'),
@@ -143,8 +151,14 @@ export const AppShell = ({ children }) => {
       ]
     },
     {
-      label: 'SYSTEM ADMIN',
+      label: t('section_admin') || 'SYSTEM ADMIN & ACCOUNT',
       items: [
+        {
+          label: t('nav_profile'),
+          path: '/app/profile',
+          icon: User,
+          roles: ['ALL']
+        },
         {
           label: t('nav_cms'),
           path: '/app/cms',
@@ -189,37 +203,78 @@ export const AppShell = ({ children }) => {
         }`}
       >
         {/* Sidebar Header */}
-        <div className="h-16 px-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
-          {!isCollapsed && (
-            <div className="flex items-center gap-2.5 min-w-0">
-              <img src="/logo/fssmlogo.png" alt="Logo" className="w-8 h-8 object-contain" />
-              <div className="truncate">
-                <div className="font-display font-extrabold text-sm text-slate-900 dark:text-white tracking-tight">
-                  CG RURAL FSSM
+        <div className={`h-16 border-b border-slate-200 dark:border-white/10 flex items-center ${isCollapsed ? 'justify-center px-2 flex-col gap-1' : 'justify-between px-3.5'}`}>
+          {!isCollapsed ? (
+            <>
+              <Link
+                to="/"
+                className="flex items-center gap-2.5 min-w-0 group hover:opacity-90 transition-opacity flex-1"
+                title={t('nav_home') || 'Go to Main Website'}
+              >
+                <img src="/logo/fssmlogo.png" alt="Logo" className="w-8 h-8 object-contain shrink-0 group-hover:scale-105 transition-transform" />
+                <div className="truncate">
+                  <div className="font-display font-extrabold text-sm text-slate-900 dark:text-white tracking-tight">
+                    CG RURAL FSSM
+                  </div>
+                  <div className="text-[10px] font-mono font-bold text-teal-700 dark:text-teal-400">OPERATIONS HUB</div>
                 </div>
-                <div className="text-[10px] font-mono font-bold text-teal-700 dark:text-teal-400">CONTROL TOWER</div>
+              </Link>
+
+              <div className="flex items-center gap-1 shrink-0">
+                {/* Home Icon: Navigate to Main Landing Page */}
+                <Link
+                  to="/"
+                  className="p-1.5 rounded-lg text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-500/15 transition-colors"
+                  title={t('nav_home') || 'Go to Main Page'}
+                >
+                  <Home size={18} />
+                </Link>
+
+                {/* Collapse / Expand Toggle */}
+                <button
+                  onClick={() => setIsCollapsed(!isCollapsed)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                  title="Collapse Sidebar"
+                >
+                  <ChevronLeft size={18} />
+                </button>
               </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-1">
+              <Link
+                to="/"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-500/15 transition-colors"
+                title={t('nav_home') || 'Go to Main Page'}
+              >
+                <Home size={18} />
+              </Link>
+              <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                title="Expand Sidebar"
+              >
+                <ChevronRight size={18} />
+              </button>
             </div>
           )}
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors mx-auto"
-            title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-          >
-            {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-          </button>
         </div>
 
-        {/* User Persona Profile Strip */}
-        <div className="p-3 border-b border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5">
+        {/* User Persona Profile Strip (Clickable to Edit Profile) */}
+        <Link
+          to="/app/profile"
+          className="p-3 border-b border-slate-200 dark:border-white/10 bg-slate-50/70 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 transition-colors group block"
+          title="Click to view & edit your profile"
+        >
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-500/20 border border-teal-200 dark:border-teal-500/40 text-teal-800 dark:text-teal-300 flex items-center justify-center font-bold text-sm shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-500/20 border border-teal-200 dark:border-teal-500/40 text-teal-800 dark:text-teal-300 flex items-center justify-center font-bold text-sm shrink-0 group-hover:scale-105 transition-transform">
               {currentUser?.name?.[0] || 'U'}
             </div>
             {!isCollapsed && (
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                  {currentUser?.name || 'User'}
+                <div className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-teal-600 transition-colors flex items-center justify-between">
+                  <span>{currentUser?.name || 'User'}</span>
+                  <span className="text-[10px] text-teal-600 font-semibold">{t('edit_profile') || 'Edit'}</span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="text-[10px] font-mono font-semibold text-sky-800 dark:text-sky-300 bg-sky-100 dark:bg-sky-500/15 px-1.5 py-0.5 rounded truncate">
@@ -229,7 +284,7 @@ export const AppShell = ({ children }) => {
               </div>
             )}
           </div>
-        </div>
+        </Link>
 
         {/* Navigation Sections */}
         <div className="flex-1 overflow-y-auto py-3 px-2 space-y-4">
@@ -277,12 +332,12 @@ export const AppShell = ({ children }) => {
               {isOnline ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-                  {!isCollapsed && <span className="text-emerald-700 dark:text-emerald-400 font-bold">ONLINE</span>}
+                  {!isCollapsed && <span className="text-emerald-700 dark:text-emerald-400 font-bold">{t('status_online') || 'ONLINE'}</span>}
                 </>
               ) : (
                 <>
                   <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                  {!isCollapsed && <span className="text-amber-700 dark:text-amber-400 font-bold">OFFLINE (DEXIE)</span>}
+                  {!isCollapsed && <span className="text-amber-700 dark:text-amber-400 font-bold">{t('status_offline') || 'OFFLINE (DEXIE)'}</span>}
                 </>
               )}
             </div>
@@ -299,29 +354,30 @@ export const AppShell = ({ children }) => {
             title="Return to Public Website"
           >
             <Globe size={15} />
-            {!isCollapsed && <span>Public Portal</span>}
+            {!isCollapsed && <span>{t('nav_public_portal') || 'Public Portal'}</span>}
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Topbar with Cascading Geo-Scope Filter */}
-        <header className="h-16 border-b border-slate-200 dark:border-white/10 bg-white/95 dark:bg-cg-ink/80 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-4 z-30 shadow-clean">
-          {/* Cascading Geo-Scope Filter (District -> Block -> GP -> Village) */}
-          <div className="flex items-center gap-2 overflow-x-auto py-1 max-w-2xl">
-            <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-teal-800 dark:text-teal-400 shrink-0">
-              <Filter size={14} />
-              <span className="hidden sm:inline">GEO-SCOPE:</span>
+        {/* Topbar with Compact Cascading Geo-Scope Filter */}
+        <header className="h-14 border-b border-slate-200 dark:border-white/10 bg-white/95 dark:bg-cg-ink/80 backdrop-blur-md px-3 sm:px-5 flex items-center justify-between gap-2 z-30 shadow-sm shrink-0">
+          {/* Cascading Geo-Scope Filter (District -> Block -> GP) */}
+          <div className="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
+            <div className="flex items-center gap-1 text-[11px] font-mono font-bold text-teal-800 dark:text-teal-400 shrink-0">
+              <Filter size={13} />
+              <span className="hidden lg:inline text-[10px] uppercase">GEO:</span>
             </div>
 
             {/* District Select */}
             <select
               value={selectedDistrict}
               onChange={(e) => handleDistrictChange(e.target.value)}
-              className="bg-slate-50 dark:bg-cg-navy border border-slate-300 dark:border-white/15 rounded-lg text-xs py-1.5 px-2 text-slate-800 dark:text-white focus:ring-1 focus:ring-teal-500 outline-none"
+              className="bg-slate-50 dark:bg-cg-navy border border-slate-300 dark:border-white/15 rounded-lg text-xs py-1 px-2 text-slate-800 dark:text-white focus:ring-1 focus:ring-teal-500 outline-none max-w-[125px] sm:max-w-[160px] truncate"
+              title={selectedDistrict || 'All Districts (State)'}
             >
-              <option value="">All Districts (State)</option>
+              <option value="">All Districts</option>
               {districts.map((d) => (
                 <option key={d} value={d}>
                   {d}
@@ -334,7 +390,8 @@ export const AppShell = ({ children }) => {
               <select
                 value={selectedBlock}
                 onChange={(e) => handleBlockChange(e.target.value)}
-                className="bg-slate-50 dark:bg-cg-navy border border-slate-300 dark:border-white/15 rounded-lg text-xs py-1.5 px-2 text-slate-800 dark:text-white focus:ring-1 focus:ring-teal-500 outline-none"
+                className="bg-slate-50 dark:bg-cg-navy border border-slate-300 dark:border-white/15 rounded-lg text-xs py-1 px-2 text-slate-800 dark:text-white focus:ring-1 focus:ring-teal-500 outline-none max-w-[110px] sm:max-w-[140px] truncate"
+                title={selectedBlock || 'All Blocks'}
               >
                 <option value="">All Blocks</option>
                 {blocks.map((b) => (
@@ -350,9 +407,10 @@ export const AppShell = ({ children }) => {
               <select
                 value={selectedGp}
                 onChange={(e) => handleGpChange(e.target.value)}
-                className="bg-slate-50 dark:bg-cg-navy border border-slate-300 dark:border-white/15 rounded-lg text-xs py-1.5 px-2 text-slate-800 dark:text-white focus:ring-1 focus:ring-teal-500 outline-none"
+                className="bg-slate-50 dark:bg-cg-navy border border-slate-300 dark:border-white/15 rounded-lg text-xs py-1 px-2 text-slate-800 dark:text-white focus:ring-1 focus:ring-teal-500 outline-none max-w-[110px] sm:max-w-[140px] truncate hidden sm:block"
+                title={selectedGp || 'All Gram Panchayats'}
               >
-                <option value="">All Gram Panchayats</option>
+                <option value="">All GPs</option>
                 {gramPanchayats.map((g) => (
                   <option key={g} value={g}>
                     {g}
@@ -364,24 +422,75 @@ export const AppShell = ({ children }) => {
             {(selectedDistrict || selectedBlock || selectedGp) && (
               <button
                 onClick={resetScope}
-                className="text-[11px] font-mono text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg shrink-0 font-medium"
+                className="text-[10px] font-mono text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 rounded-md shrink-0 font-medium"
                 title="Reset Geo Filter to State"
               >
-                Reset
+                {t('btn_reset') || 'Reset'}
               </button>
             )}
           </div>
 
-          {/* Right Tools: Role Badge & Return to Home */}
-          <div className="flex items-center gap-3 shrink-0">
-            <DataTag color="teal">
-              {currentUser?.district?.split(' ')[0] || 'STATEWIDE'}
-            </DataTag>
-            <Link
-              to="/book"
-              className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-clean"
+          {/* Right Tools: Language Toggle, Theme Toggle, Public Portal Link */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Language Selector Dropdown */}
+            <div className="relative shrink-0">
+              <button
+                onClick={() => setIsLangOpen(!isLangOpen)}
+                className="px-2 py-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 transition-colors flex items-center gap-1 text-xs font-bold shrink-0"
+                aria-label="Change Language"
+                title="Change Platform Language"
+              >
+                <Globe size={13} className="text-teal-600 dark:text-teal-400" />
+                <span className="uppercase text-[11px] font-mono">{lang}</span>
+                <ChevronDown size={11} className="opacity-60" />
+              </button>
+              {isLangOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-36 bg-white dark:bg-cg-ink border border-slate-200 dark:border-white/15 rounded-xl p-1 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="px-2 py-1 text-[9px] font-mono font-bold text-slate-400 dark:text-slate-500 uppercase border-b border-slate-100 dark:border-white/10 mb-1">
+                    {t('select_language') || 'Language'}
+                  </div>
+                  {languages.map((l) => (
+                    <button
+                      key={l.code}
+                      onClick={() => {
+                        setLang(l.code);
+                        setIsLangOpen(false);
+                      }}
+                      className={`w-full text-left px-2 py-1 rounded-lg text-xs font-medium flex items-center justify-between transition-colors ${
+                        lang === l.code
+                          ? 'bg-teal-600 text-white font-bold'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10'
+                      }`}
+                    >
+                      <span>{l.label}</span>
+                      <span className="text-[10px] font-mono opacity-80">{l.code.toUpperCase()}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Dark / Light Mode Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 transition-colors shrink-0"
+              title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle Dark/Light Mode"
             >
-              + New Desludge
+              {isDarkMode ? <Sun size={14} className="text-amber-400" /> : <Moon size={14} className="text-slate-700 dark:text-slate-300" />}
+            </button>
+
+            {/* Public Portal Link */}
+            <Link
+              to="/"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 text-xs font-medium transition-colors shrink-0"
+              title="Return to Public Portal"
+            >
+              <Home size={13} className="text-teal-600 dark:text-teal-400" />
+              <span className="hidden md:inline">{t('nav_public_portal') || 'Public Portal'}</span>
             </Link>
           </div>
         </header>

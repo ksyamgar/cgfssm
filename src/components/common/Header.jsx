@@ -246,82 +246,92 @@ export const Header = () => {
           </Link>
         </div>
       )}
+    </header>
 
-      {/* 11-Role Fast Persona Switcher Modal */}
-      {isRoleModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm">
-          <div className="bg-white dark:bg-cg-ink max-w-2xl w-full rounded-2xl p-6 border border-slate-200 dark:border-teal-500/40 shadow-clean-lg animate-in fade-in zoom-in duration-150 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 dark:border-white/10">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-500/20 text-teal-700 dark:text-teal-300 flex items-center justify-center">
-                  <UserCheck size={20} />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
-                    RBAC Role Evaluator (11 Roles)
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Switch instant persona to verify role-gated permissions, actions, and data scopes
-                  </p>
-                </div>
+    {/* 11-Role Fast Persona Switcher Modal */}
+    {isRoleModalOpen && (
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm"
+        onClick={() => setIsRoleModalOpen(false)}
+      >
+        <div
+          className="bg-white dark:bg-cg-ink max-w-2xl w-full rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-teal-500/40 shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] flex flex-col my-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Modal Header */}
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 dark:border-white/10 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-500/20 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
+                <UserCheck size={20} />
               </div>
-              <button
-                onClick={() => setIsRoleModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg"
-              >
-                <X size={20} />
-              </button>
+              <div>
+                <h3 className="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white leading-tight">
+                  RBAC Role Evaluator (11 Roles)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Switch instant persona to verify role-gated permissions, actions, and data scopes
+                </p>
+              </div>
             </div>
+            <button
+              onClick={() => setIsRoleModalOpen(false)}
+              className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+              aria-label="Close modal"
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              {allMockUsers.map((user) => {
-                const isSelected = currentUser?.id === user.id;
-                return (
-                  <button
-                    key={user.id}
-                    onClick={() => {
-                      loginAsRole(user.role);
-                      setIsRoleModalOpen(false);
-                    }}
-                    className={`text-left p-3.5 rounded-xl border transition-all flex flex-col justify-between ${
-                      isSelected
-                        ? 'border-teal-500 bg-teal-50/80 dark:bg-teal-500/20 shadow-clean'
-                        : 'border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100/80 dark:hover:bg-white/10'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="font-semibold text-sm text-slate-900 dark:text-white">
-                          {user.name}
-                        </div>
-                        <div className="text-xs font-mono text-teal-700 dark:text-teal-400 font-bold">
-                          {user.role}
-                        </div>
+          {/* Modal Content - Scrollable Grid */}
+          <div className="overflow-y-auto pr-1 py-1 grid grid-cols-1 md:grid-cols-2 gap-2.5 flex-1 min-h-0">
+            {allMockUsers.map((user) => {
+              const isSelected = currentUser?.id === user.id;
+              return (
+                <button
+                  key={user.id}
+                  onClick={() => {
+                    loginAsRole(user.role);
+                    setIsRoleModalOpen(false);
+                  }}
+                  className={`text-left p-3.5 rounded-xl border transition-all flex flex-col justify-between ${
+                    isSelected
+                      ? 'border-teal-500 bg-teal-50/80 dark:bg-teal-500/20 shadow-clean'
+                      : 'border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100/80 dark:hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm text-slate-900 dark:text-white truncate">
+                        {user.name}
                       </div>
-                      <DataTag color={isSelected ? 'teal' : 'slate'}>
-                        {user.district?.split(' ')[0] || 'STATE'}
-                      </DataTag>
+                      <div className="text-xs font-mono text-teal-700 dark:text-teal-400 font-bold">
+                        {user.role}
+                      </div>
                     </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 line-clamp-1">
-                      {user.designation}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    <DataTag color={isSelected ? 'teal' : 'slate'}>
+                      {user.district?.split(' ')[0] || 'STATE'}
+                    </DataTag>
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 line-clamp-1">
+                    {user.designation}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
-            <div className="mt-5 pt-3 border-t border-slate-200 dark:border-white/10 flex justify-end">
-              <button
-                onClick={() => setIsRoleModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-xs font-semibold text-slate-700 dark:text-white"
-              >
-                Close Switcher
-              </button>
-            </div>
+          {/* Modal Footer */}
+          <div className="mt-4 pt-3 border-t border-slate-200 dark:border-white/10 flex justify-end shrink-0">
+            <button
+              onClick={() => setIsRoleModalOpen(false)}
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-xs font-semibold text-slate-700 dark:text-white transition-colors"
+            >
+              Close Switcher
+            </button>
           </div>
         </div>
-      )}
-    </header>
+      </div>
+    )}
   </>
 );
 };

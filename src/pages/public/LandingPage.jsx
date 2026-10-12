@@ -191,29 +191,163 @@ export const LandingPage = () => {
   const stage = stagesData[currentStage];
 
   // ----------------------------------------------------
-  // 2. TOKEN TRACKING CONSOLE STATE
+  // 2. TOKEN TRACKING CONSOLE STATE & DYNAMIC RESOLVER
   // ----------------------------------------------------
-  const [searchToken, setSearchToken] = useState('CG-D02-B07-GP11-2026-000412');
-  const [verifiedTokenData, setVerifiedTokenData] = useState({
-    token: 'CG-D02-B07-GP11-2026-000412',
-    status: 'EN ROUTE',
-    applicant: 'Rameshwar Sahu',
-    gp: 'Jamgaon (R)',
-    block: 'Patan Block',
-    eta: '18 Mins',
-    dist: '4.2 km away',
-    speed: '32 km/h',
-    driver: 'Mohan Lal Verma',
-    truck: 'CG-07-TR-9941',
-    plant: 'Patan Cluster FSTP (Bay 02)',
-    capacity: '3,000 Litres (Vacuum PTO)'
-  });
+  const sampleTrackingTokens = [
+    { token: 'CG-D02-B07-GP11-2026-000101', label: 'Mandir Hasaud (En Route)' },
+    { token: 'CG-D02-B07-GP11-2026-000102', label: 'Gullu GP (Arrived)' },
+    { token: 'CG-D02-B07-GP11-2026-000412', label: 'Jamgaon (R) Patan' },
+    { token: 'CG-04-ME-4821', label: 'Vacuum Tanker' },
+    { token: 'CG-04-TA-1904', label: 'Tractor Unit' }
+  ];
+
+  const resolveTokenData = (rawToken) => {
+    const clean = (rawToken || '').trim();
+    if (!clean) return null;
+
+    // Search in live requests
+    const matchedReq = (requests || []).find((r) =>
+      (r.requestNo && r.requestNo.toLowerCase().includes(clean.toLowerCase())) ||
+      (r.id && r.id.toLowerCase().includes(clean.toLowerCase())) ||
+      (r.assignedVehicleNo && r.assignedVehicleNo.toLowerCase().includes(clean.toLowerCase())) ||
+      (r.citizenName && r.citizenName.toLowerCase().includes(clean.toLowerCase())) ||
+      (r.citizenPhone && r.citizenPhone.includes(clean))
+    );
+
+    if (matchedReq) {
+      let stepNum = 3;
+      let statusText = 'EN ROUTE';
+      let eta = '18 Mins';
+      let dist = '4.2 km away';
+      let speed = '32 km/h';
+
+      if (matchedReq.status === 'SUBMITTED' || matchedReq.status === 'PENDING') {
+        stepNum = 1;
+        statusText = 'BOOKED & QUEUED';
+        eta = 'Pending GP Approval';
+        dist = 'At GP Hub';
+        speed = '0 km/h';
+      } else if (matchedReq.status === 'APPROVED' || matchedReq.status === 'ASSIGNED') {
+        stepNum = 2;
+        statusText = 'ASSIGNED TO FLEET';
+        eta = '35 Mins';
+        dist = '7.5 km away';
+        speed = 'Preparation';
+      } else if (matchedReq.status === 'EN_ROUTE') {
+        stepNum = 3;
+        statusText = 'EN ROUTE';
+        eta = '18 Mins';
+        dist = '4.2 km away';
+        speed = '32 km/h';
+      } else if (matchedReq.status === 'ARRIVED' || matchedReq.status === 'IN_PROGRESS') {
+        stepNum = 4;
+        statusText = 'ARRIVED ON SITE';
+        eta = 'On-site Desludging';
+        dist = 'At Citizen Premises';
+        speed = 'Stationary (Suction Active)';
+      } else if (matchedReq.status === 'COMPLETED' || matchedReq.status === 'DISPOSED' || matchedReq.status === 'CLOSED') {
+        stepNum = 5;
+        statusText = 'DELIVERED & DECANTED';
+        eta = 'Discharged at FSTP';
+        dist = 'Treatment Completed';
+        speed = 'Safe Standby';
+      }
+
+      return {
+        token: matchedReq.requestNo || matchedReq.id || clean,
+        status: statusText,
+        step: stepNum,
+        applicant: matchedReq.citizenName || 'Verified Citizen',
+        gp: matchedReq.gp || 'Mandir Hasaud',
+        block: matchedReq.block || 'Dharsiwa Block',
+        district: matchedReq.district || 'Raipur (378)',
+        eta,
+        dist,
+        speed,
+        driver: matchedReq.assignedDriverName || 'Ramesh Patel',
+        truck: matchedReq.assignedVehicleNo || 'CG-04-ME-4821',
+        plant: matchedReq.targetFstpName || 'Arang Cluster Rural FSTP (Bay 01)',
+        capacity: `${(matchedReq.tankVolumeLitres || 3500).toLocaleString()} Litres (Vacuum Unit)`
+      };
+    }
+
+    // Check if matching vehicle
+    const matchedVeh = (vehicles || []).find((v) =>
+      (v.regNo && v.regNo.toLowerCase().includes(clean.toLowerCase())) ||
+      (v.id && v.id.toLowerCase().includes(clean.toLowerCase()))
+    );
+
+    if (matchedVeh) {
+      return {
+        token: matchedVeh.regNo,
+        status: matchedVeh.status === 'ACTIVE' || matchedVeh.status === 'ON_TRIP' ? 'EN ROUTE' : 'STANDBY',
+        step: 3,
+        applicant: 'Fleet Telemetry Stream',
+        gp: matchedVeh.vendorName || 'Empaneled PSSO Agency',
+        block: matchedVeh.type || 'Vacuum Tanker',
+        district: matchedVeh.district || 'Raipur (378)',
+        eta: '12 Mins',
+        dist: '2.9 km away',
+        speed: `${matchedVeh.currentSpeedKmh || 36} km/h`,
+        driver: matchedVeh.driverName || 'Santosh Yadav',
+        truck: matchedVeh.regNo,
+        plant: 'State Authorized FSTP Facility',
+        capacity: `${(matchedVeh.capacityLitres || 4000).toLocaleString()} Litres (AIS-140 GPS)`
+      };
+    }
+
+    // Dynamic Seeded Generator for any custom token / registration entered by user
+    const lastDigits = clean.replace(/\D/g, '').slice(-3) || '412';
+    const digitNum = parseInt(lastDigits, 10) || 123;
+    const names = ['Rameshwar Sahu', 'Bhupendra Chandrakar', 'Smt. Gayatri Devi Sahu', 'Dileep Verma', 'Santosh Netam', 'Devendra Patel', 'Mahendra Netam'];
+    const gps = ['Jamgaon (R), Patan Block', 'Mandir Hasaud, Dharsiwa Block', 'Gullu, Arang Block', 'Selud, Patan Block', 'Bilha, Bilaspur Block', 'Kurud, Dhamtari Block'];
+    const drivers = ['Mohan Lal Verma', 'Ramesh Patel', 'Brijesh Yadav', 'Dhananjay Singh', 'Sunil Markam', 'Kishore Dewangan'];
+    const plants = ['Patan Cluster FSTP (Bay 02)', 'Arang Cluster Rural FSTP (Bay 01)', 'Bilha Regional FSTP', 'Raipur Urban STP - Nimora'];
+
+    const chosenName = names[digitNum % names.length];
+    const chosenGp = gps[digitNum % gps.length];
+    const chosenDriver = drivers[digitNum % drivers.length];
+    const chosenPlant = plants[digitNum % plants.length];
+    const chosenStep = (digitNum % 5) + 1;
+    const statuses = ['BOOKED & QUEUED', 'ASSIGNED TO FLEET', 'EN ROUTE', 'SUCTION / DESLUDGING', 'DELIVERED & DECANTED'];
+
+    return {
+      token: clean.toUpperCase(),
+      status: statuses[chosenStep - 1],
+      step: chosenStep,
+      applicant: chosenName,
+      gp: chosenGp.split(',')[0],
+      block: chosenGp.split(',')[1] || 'Rural Block',
+      district: 'Chhattisgarh',
+      eta: chosenStep === 3 ? `${(digitNum % 20) + 6} Mins` : chosenStep === 4 ? 'On-site Active' : chosenStep === 5 ? 'Completed' : '30 Mins',
+      dist: chosenStep === 3 ? `${((digitNum % 40) / 10 + 1.2).toFixed(1)} km away` : 'At Premises',
+      speed: chosenStep === 3 ? `${(digitNum % 25) + 25} km/h` : '0 km/h',
+      driver: chosenDriver,
+      truck: clean.toUpperCase().startsWith('CG-') && clean.length <= 14 ? clean.toUpperCase() : `CG-04-TR-${1000 + (digitNum % 9000)}`,
+      plant: chosenPlant,
+      capacity: `${3000 + (digitNum % 3) * 1000} Litres (Vacuum PTO)`
+    };
+  };
+
+  const defaultInitialToken = 'CG-D02-B07-GP11-2026-000412';
+  const [searchToken, setSearchToken] = useState(defaultInitialToken);
+  const [verifiedTokenData, setVerifiedTokenData] = useState(() => resolveTokenData(defaultInitialToken));
   const [tokenAlert, setTokenAlert] = useState('');
 
-  const handleVerifyToken = () => {
+  const handleApplyToken = (newToken) => {
+    setSearchToken(newToken);
+    const resolved = resolveTokenData(newToken);
+    if (resolved) {
+      setVerifiedTokenData(resolved);
+      setTokenAlert(`✓ Manifest Token "${resolved.token}" verified in real time • Status: ${resolved.status}`);
+      setTimeout(() => setTokenAlert(''), 5000);
+    }
+  };
+
+  const handleVerifyToken = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (!searchToken.trim()) return;
-    setTokenAlert(`Manifest Token "${searchToken}" verified. Tanker CG-07-TR-9941 is en-route with AIS-140 GPS lock.`);
-    setTimeout(() => setTokenAlert(''), 5000);
+    handleApplyToken(searchToken);
   };
 
   // ----------------------------------------------------
@@ -278,66 +412,78 @@ export const LandingPage = () => {
           <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[900px] h-[340px] bg-gradient-to-b from-teal-500/15 via-sky-500/10 to-transparent blur-3xl pointer-events-none rounded-full dark:opacity-40"></div>
 
           <div className="max-w-7xl mx-auto flex flex-col gap-3 sm:gap-4 relative z-10">
-            {/* Hero Top: High-Impact Editorial & CTAs */}
-            <div className="flex flex-col items-center text-center gap-3 max-w-4xl mx-auto">
-              {/* Badges */}
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-500/30 text-teal-800 dark:text-teal-300 font-mono text-[10px] sm:text-[11px] font-bold tracking-wider shadow-sm">
-                  <Sparkles size={13} className="text-teal-600 dark:text-teal-400" />
-                  <span>AERONAUTICAL-GRADE TELEMETRY</span>
-                </div>
-                <div className="flex items-center gap-1.5 font-mono text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">SBM-G MISSION PLATFORM</span>
-                  <span>•</span>
-                  <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 text-[10px]">
-                    v2.4 Live
-                  </span>
-                </div>
+            {/* Hero Top: High-Impact Editorial & CTAs with Prominent Left Logo */}
+            <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center gap-6 sm:gap-8 lg:gap-10 my-2">
+              {/* Prominent Left Logo (Fitting height from title down till buttons) */}
+              <div className="shrink-0 flex items-center justify-center self-center">
+                <img
+                  src="/logo/fssmlogo.png"
+                  alt="CG Rural FSSM Official Logo"
+                  className="w-44 h-44 sm:w-56 sm:h-56 md:w-64 md:h-64 lg:w-72 lg:h-72 xl:w-[290px] xl:h-[290px] object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-300"
+                />
               </div>
 
-              {/* Grand Main Headline */}
-              <h1 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-5xl text-slate-900 dark:text-white tracking-tight leading-[1.15]">
-                The Digital Operating System for{' '}
-                <span className="text-teal-600 dark:text-teal-400 relative inline-block">
-                  Rural Sanitation
-                  <svg
-                    className="absolute -bottom-1.5 left-0 w-full h-3 text-teal-500/80 dark:text-teal-400"
-                    viewBox="0 0 200 12"
-                    fill="none"
-                    preserveAspectRatio="none"
+              {/* Right Hero Content: Badges, Grand Title, Subtitle, and Action Buttons */}
+              <div className="flex flex-col items-center md:items-start text-center md:text-left gap-3 flex-1 min-w-0">
+                {/* Badges */}
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-500/30 text-teal-800 dark:text-teal-300 font-mono text-[10px] sm:text-[11px] font-bold tracking-wider shadow-sm">
+                    <Sparkles size={13} className="text-teal-600 dark:text-teal-400" />
+                    <span>AERONAUTICAL-GRADE TELEMETRY</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-mono text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">SBM-G MISSION PLATFORM</span>
+                    <span>•</span>
+                    <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 text-[10px]">
+                      v2.4 Live
+                    </span>
+                  </div>
+                </div>
+
+                {/* Grand Main Headline */}
+                <h1 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-5xl text-slate-900 dark:text-white tracking-tight leading-[1.15]">
+                  The Digital Operating System for{' '}
+                  <span className="text-teal-600 dark:text-teal-400 relative inline-block">
+                    Rural Sanitation
+                    <svg
+                      className="absolute -bottom-1.5 left-0 w-full h-3 text-teal-500/80 dark:text-teal-400"
+                      viewBox="0 0 200 12"
+                      fill="none"
+                      preserveAspectRatio="none"
+                    >
+                      <path
+                        d="M0 6 Q 25 12, 50 6 T 100 6 T 150 6 T 200 6"
+                        stroke="currentColor"
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </span>
+                </h1>
+
+                {/* Descriptive Subtitle */}
+                <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed font-sans">
+                  Real-time desludging fleet dispatch, tamper-proof anti-dumping telemetry & automated GP-to-FSTP accounting under Swachh Bharat Mission (Grameen).
+                </p>
+
+                {/* Action Buttons */}
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-0.5">
+                  <Link
+                    to="/book"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-600 text-white font-bold text-xs sm:text-sm shadow-clean-sm hover:shadow-teal-600/30 transition-all hover:scale-105"
                   >
-                    <path
-                      d="M0 6 Q 25 12, 50 6 T 100 6 T 150 6 T 200 6"
-                      stroke="currentColor"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </span>
-              </h1>
+                    <Droplets size={16} />
+                    <span>Book Desludging Service</span>
+                  </Link>
 
-              {/* Descriptive Subtitle */}
-              <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed font-sans">
-                Real-time desludging fleet dispatch, tamper-proof anti-dumping telemetry & automated GP-to-FSTP accounting under Swachh Bharat Mission (Grameen).
-              </p>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-0.5">
-                <Link
-                  to="/book"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-600 text-white font-bold text-xs sm:text-sm shadow-clean-sm hover:shadow-teal-600/30 transition-all hover:scale-105"
-                >
-                  <Droplets size={16} />
-                  <span>Book Desludging Service</span>
-                </Link>
-
-                <Link
-                  to="/live-map"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 dark:bg-white/10 dark:hover:bg-white/15 text-slate-800 dark:text-white font-bold text-xs sm:text-sm border border-slate-300 dark:border-white/20 shadow-sm transition-all hover:border-slate-400"
-                >
-                  <Navigation size={16} className="text-sky-600 dark:text-sky-400" />
-                  <span>View State Telemetry Map</span>
-                </Link>
+                  <Link
+                    to="/live-map"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 dark:bg-white/10 dark:hover:bg-white/15 text-slate-800 dark:text-white font-bold text-xs sm:text-sm border border-slate-300 dark:border-white/20 shadow-sm transition-all hover:border-slate-400"
+                  >
+                    <Navigation size={16} className="text-sky-600 dark:text-sky-400" />
+                    <span>View State Telemetry Map</span>
+                  </Link>
+                </div>
               </div>
             </div>
 
@@ -695,195 +841,246 @@ export const LandingPage = () => {
                 </p>
               </div>
 
-              {/* Token Search Input Bar */}
-              <div className="w-full md:w-96 flex items-center bg-white dark:bg-[#0A2540] rounded-full p-1.5 shadow-clean border border-slate-200/80 dark:border-white/15">
-                <input
-                  type="text"
-                  value={searchToken}
-                  onChange={(e) => setSearchToken(e.target.value)}
-                  placeholder="e.g. CG-D02-B07-..."
-                  className="w-full px-4 py-1.5 bg-transparent font-mono text-xs text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleVerifyToken}
-                  className="px-4 py-2 rounded-full bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition-colors shrink-0 flex items-center gap-1.5 shadow-sm"
-                >
-                  <Search size={14} />
-                  <span>Verify</span>
-                </button>
+              {/* Token Search Input Bar & Quick Pick Chips */}
+              <div className="flex flex-col gap-2 w-full md:w-auto">
+                <form onSubmit={handleVerifyToken} className="w-full md:w-96 flex items-center bg-white dark:bg-[#0A2540] rounded-full p-1.5 shadow-clean border border-slate-200/80 dark:border-white/15">
+                  <input
+                    type="text"
+                    value={searchToken}
+                    onChange={(e) => handleApplyToken(e.target.value)}
+                    placeholder="e.g. CG-D02-B07-2026-000101 or CG-04-ME-4821"
+                    className="w-full px-4 py-1.5 bg-transparent font-mono text-xs text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-full bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition-colors shrink-0 flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Search size={14} />
+                    <span>Verify</span>
+                  </button>
+                </form>
+
+                {/* Quick-Pick Live Demo Token Chips */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">Quick Tokens:</span>
+                  {sampleTrackingTokens.map((st) => (
+                    <button
+                      key={st.token}
+                      type="button"
+                      onClick={() => handleApplyToken(st.token)}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-mono transition-all border ${
+                        searchToken.toUpperCase() === st.token.toUpperCase()
+                          ? 'bg-sky-600 text-white border-sky-600 font-bold shadow-sm'
+                          : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
+                      }`}
+                    >
+                      {st.token.split('-').slice(-2).join('-')} ({st.label.split(' ')[0]})
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {tokenAlert && (
-              <div className="p-3.5 rounded-xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-500/30 text-teal-800 dark:text-teal-300 text-xs font-mono flex items-center gap-2">
-                <CheckCircle size={16} className="text-teal-600 dark:text-teal-400" />
+              <div className="p-3.5 rounded-xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-500/30 text-teal-800 dark:text-teal-300 text-xs font-mono flex items-center gap-2 animate-in fade-in">
+                <CheckCircle size={16} className="text-teal-600 dark:text-teal-400 shrink-0" />
                 <span>{tokenAlert}</span>
               </div>
             )}
 
             {/* Main Tracking Card */}
-            <div className="w-full bg-white dark:bg-[#072238] rounded-2xl shadow-clean-md border border-slate-200/80 dark:border-white/10 p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Left: Progress Flow (8 cols) */}
-              <div className="lg:col-span-8 flex flex-col justify-between gap-6">
-                {/* Token Header Details */}
-                <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-white/10">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-bold text-teal-700 dark:text-teal-300">
-                        #{verifiedTokenData.token}
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-mono text-[10px] font-bold">
-                        {verifiedTokenData.status}
+            {verifiedTokenData && (
+              <div className="w-full bg-white dark:bg-[#072238] rounded-2xl shadow-clean-md border border-slate-200/80 dark:border-white/10 p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left: Progress Flow (8 cols) */}
+                <div className="lg:col-span-8 flex flex-col justify-between gap-6">
+                  {/* Token Header Details */}
+                  <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-white/10">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-sm font-bold text-teal-700 dark:text-teal-300">
+                          #{verifiedTokenData.token}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-mono text-[10px] font-bold">
+                          {verifiedTokenData.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-300">
+                        Applicant: <strong>{verifiedTokenData.applicant}</strong> • Gram Panchayat: <strong>{verifiedTokenData.gp}, {verifiedTokenData.block}</strong>
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 block">Estimated Arrival</span>
+                      <span className="font-display font-extrabold text-xl text-teal-600 dark:text-teal-400">
+                        {verifiedTokenData.eta} <span className="text-xs font-normal text-slate-600 dark:text-slate-300">({verifiedTokenData.dist})</span>
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-300">
-                      Applicant: <strong>{verifiedTokenData.applicant}</strong> • Gram Panchayat: <strong>{verifiedTokenData.gp}, {verifiedTokenData.block}</strong>
-                    </p>
                   </div>
-                  <div className="text-right">
-                    <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 block">Estimated Arrival</span>
-                    <span className="font-display font-extrabold text-xl text-teal-600 dark:text-teal-400">
-                      {verifiedTokenData.eta} <span className="text-xs font-normal text-slate-600 dark:text-slate-300">({verifiedTokenData.dist})</span>
-                    </span>
+
+                  {/* Dynamic Trip Stepper Progress Bar */}
+                  <div className="w-full py-4">
+                    <div className="relative flex items-center justify-between">
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full"></div>
+                      <div
+                        className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 bg-teal-600 rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, ((verifiedTokenData.step - 1) / 4) * 100))}%`
+                        }}
+                      ></div>
+
+                      {/* Step 1: Booked */}
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-sm transition-all ${
+                          verifiedTokenData.step >= 1 ? 'bg-teal-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                        }`}>
+                          <Check size={16} />
+                        </div>
+                        <span className="text-xs font-semibold text-slate-800 dark:text-white mt-2">Booked</span>
+                        <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">Citizen Token</span>
+                      </div>
+
+                      {/* Step 2: Assigned */}
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-sm transition-all ${
+                          verifiedTokenData.step >= 2 ? 'bg-teal-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                        }`}>
+                          {verifiedTokenData.step > 2 ? <Check size={16} /> : <FileText size={15} />}
+                        </div>
+                        <span className="text-xs font-semibold text-slate-800 dark:text-white mt-2">Assigned</span>
+                        <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">GP Verified</span>
+                      </div>
+
+                      {/* Step 3: En Route */}
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs shadow-md transition-all ${
+                          verifiedTokenData.step >= 3
+                            ? 'bg-teal-600 text-white ring-4 ring-teal-400/40 animate-pulse'
+                            : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                        }`}>
+                          <Truck size={18} />
+                        </div>
+                        <span className={`text-xs mt-2 ${verifiedTokenData.step === 3 ? 'font-bold text-teal-600 dark:text-teal-400' : 'font-semibold text-slate-800 dark:text-white'}`}>
+                          En Route
+                        </span>
+                        <span className="font-mono text-[10px] text-teal-600 dark:text-teal-400">
+                          {verifiedTokenData.step === 3 ? verifiedTokenData.speed : 'GPS Linked'}
+                        </span>
+                      </div>
+
+                      {/* Step 4: Suction */}
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-sm transition-all ${
+                          verifiedTokenData.step >= 4 ? 'bg-teal-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                        }`}>
+                          <Droplets size={16} />
+                        </div>
+                        <span className={`text-xs mt-2 ${verifiedTokenData.step === 4 ? 'font-bold text-teal-600 dark:text-teal-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                          Suction/Empty
+                        </span>
+                        <span className="font-mono text-[10px] text-slate-400">
+                          {verifiedTokenData.step >= 4 ? 'PPE Checked' : 'Scheduled'}
+                        </span>
+                      </div>
+
+                      {/* Step 5: FSTP */}
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-sm transition-all ${
+                          verifiedTokenData.step >= 5 ? 'bg-teal-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                        }`}>
+                          <Factory size={16} />
+                        </div>
+                        <span className={`text-xs mt-2 ${verifiedTokenData.step >= 5 ? 'font-bold text-teal-600 dark:text-teal-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                          FSTP Reception
+                        </span>
+                        <span className="font-mono text-[10px] text-slate-400">
+                          {verifiedTokenData.step >= 5 ? '100% Decanted' : 'Decanting Bay'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Trip Safety Badges */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#061A28] flex items-center gap-3 border border-slate-200/60 dark:border-white/10">
+                      <CheckCircle size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <div>
+                        <span className="block text-xs font-semibold text-slate-900 dark:text-white">PPE Verified</span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">Mask, Gloves, Boots Uploaded</span>
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#061A28] flex items-center gap-3 border border-slate-200/60 dark:border-white/10">
+                      <Lock size={20} className="text-teal-600 dark:text-teal-400 shrink-0" />
+                      <div>
+                        <span className="block text-xs font-semibold text-slate-900 dark:text-white">Geo-Lock Sealed</span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">Corridor Anti-Spill Active</span>
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#061A28] flex items-center gap-3 border border-slate-200/60 dark:border-white/10">
+                      <Award size={20} className="text-sky-600 dark:text-sky-400 shrink-0" />
+                      <div>
+                        <span className="block text-xs font-semibold text-slate-900 dark:text-white">Govt Cap Tariff</span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">Notified Rate • Zero Cash Tip</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Trip Stepper Progress Bar */}
-                <div className="w-full py-4">
-                  <div className="relative flex items-center justify-between">
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full"></div>
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 w-3/5 bg-teal-600 rounded-full"></div>
-
-                    {/* Step 1 */}
-                    <div className="relative z-10 flex flex-col items-center">
-                      <div className="w-8 h-8 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs shadow-sm">
-                        <Check size={16} />
-                      </div>
-                      <span className="text-xs font-semibold text-slate-800 dark:text-white mt-2">Booked</span>
-                      <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">14 May • 08:24</span>
+                {/* Right: Assigned Driver & Vehicle Snapshot (4 cols) */}
+                <div className="lg:col-span-4 bg-slate-50 dark:bg-[#061A28] rounded-2xl p-5 flex flex-col justify-between gap-4 border border-slate-200/60 dark:border-white/10">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-white/10">
+                      <span className="font-mono text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        Designated Operator
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-mono text-[10px] font-bold">
+                        AIS-140 OK
+                      </span>
                     </div>
 
-                    {/* Step 2 */}
-                    <div className="relative z-10 flex flex-col items-center">
-                      <div className="w-8 h-8 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs shadow-sm">
-                        <Check size={16} />
+                    {/* Driver profile */}
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-full bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center text-teal-800 dark:text-teal-200 font-display font-bold shadow-sm">
+                        {verifiedTokenData.driver?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'OP'}
                       </div>
-                      <span className="text-xs font-semibold text-slate-800 dark:text-white mt-2">Assigned</span>
-                      <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">14 May • 08:48</span>
+                      <div>
+                        <h4 className="font-display font-bold text-sm text-slate-900 dark:text-white">{verifiedTokenData.driver}</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Licensed SBM-G Sanitation Lead</p>
+                        <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
+                          <Star size={13} fill="currentColor" />
+                          <span>4.92 • 412 Safe Runs</span>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Step 3 */}
-                    <div className="relative z-10 flex flex-col items-center">
-                      <div className="w-9 h-9 rounded-full bg-teal-600 text-white ring-4 ring-teal-400/40 flex items-center justify-center text-xs shadow-md animate-pulse">
-                        <Truck size={18} />
+                    {/* Vehicle Details */}
+                    <div className="space-y-2 pt-2 text-xs border-t border-slate-200/60 dark:border-white/10">
+                      <div className="flex justify-between py-1">
+                        <span className="text-slate-500 dark:text-slate-400">Tanker Reg #:</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{verifiedTokenData.truck}</span>
                       </div>
-                      <span className="text-xs font-bold text-teal-600 dark:text-teal-400 mt-2">En Route</span>
-                      <span className="font-mono text-[10px] text-teal-600 dark:text-teal-400">In Motion • 32 km/h</span>
-                    </div>
-
-                    {/* Step 4 */}
-                    <div className="relative z-10 flex flex-col items-center">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center text-xs">
-                        <Droplets size={16} />
+                      <div className="flex justify-between py-1">
+                        <span className="text-slate-500 dark:text-slate-400">Tank Capacity:</span>
+                        <span className="font-semibold text-slate-900 dark:text-white">{verifiedTokenData.capacity}</span>
                       </div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 mt-2">Suction/De-sludge</span>
-                      <span className="font-mono text-[10px] text-slate-400">Est. 09:40</span>
-                    </div>
-
-                    {/* Step 5 */}
-                    <div className="relative z-10 flex flex-col items-center">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center text-xs">
-                        <Factory size={16} />
+                      <div className="flex justify-between py-1">
+                        <span className="text-slate-500 dark:text-slate-400">Designated Reception:</span>
+                        <span className="font-semibold text-teal-700 dark:text-teal-300">{verifiedTokenData.plant}</span>
                       </div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 mt-2">Patan FSTP Influx</span>
-                      <span className="font-mono text-[10px] text-slate-400">Est. 10:15</span>
                     </div>
                   </div>
-                </div>
 
-                {/* Trip Safety Badges */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#061A28] flex items-center gap-3 border border-slate-200/60 dark:border-white/10">
-                    <CheckCircle size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <div>
-                      <span className="block text-xs font-semibold text-slate-900 dark:text-white">PPE Verified</span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">Mask, Gloves, Boots Uploaded</span>
-                    </div>
-                  </div>
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#061A28] flex items-center gap-3 border border-slate-200/60 dark:border-white/10">
-                    <Lock size={20} className="text-teal-600 dark:text-teal-400 shrink-0" />
-                    <div>
-                      <span className="block text-xs font-semibold text-slate-900 dark:text-white">Geo-Lock Sealed</span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">Corridor Anti-Spill Active</span>
-                    </div>
-                  </div>
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#061A28] flex items-center gap-3 border border-slate-200/60 dark:border-white/10">
-                    <Award size={20} className="text-sky-600 dark:text-sky-400 shrink-0" />
-                    <div>
-                      <span className="block text-xs font-semibold text-slate-900 dark:text-white">Govt Cap Tariff</span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">Notified Rate • Zero Cash Tip</span>
-                    </div>
+                  {/* Citizen Action Call CTA */}
+                  <div className="pt-2">
+                    <a
+                      href="tel:18002337266"
+                      className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white dark:bg-[#0B2032] hover:bg-slate-100 dark:hover:bg-white/10 text-slate-800 dark:text-white font-semibold text-xs transition-colors border border-slate-200/80 dark:border-white/10 shadow-sm"
+                    >
+                      <PhoneCall size={14} className="text-sky-600 dark:text-sky-400" />
+                      <span>Contact Gram Sahayak Desk</span>
+                    </a>
                   </div>
                 </div>
               </div>
-
-              {/* Right: Assigned Driver & Vehicle Snapshot (4 cols) */}
-              <div className="lg:col-span-4 bg-slate-50 dark:bg-[#061A28] rounded-2xl p-5 flex flex-col justify-between gap-4 border border-slate-200/60 dark:border-white/10">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-white/10">
-                    <span className="font-mono text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Designated Operator
-                    </span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-mono text-[10px] font-bold">
-                      AIS-140 OK
-                    </span>
-                  </div>
-
-                  {/* Driver profile */}
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-full bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center text-teal-800 dark:text-teal-200 font-display font-bold shadow-sm">
-                      ML
-                    </div>
-                    <div>
-                      <h4 className="font-display font-bold text-sm text-slate-900 dark:text-white">{verifiedTokenData.driver}</h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Licensed SBM-G Sanitation Lead</p>
-                      <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
-                        <Star size={13} fill="currentColor" />
-                        <span>4.92 • 412 Safe Runs</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Vehicle Details */}
-                  <div className="space-y-2 pt-2 text-xs border-t border-slate-200/60 dark:border-white/10">
-                    <div className="flex justify-between py-1">
-                      <span className="text-slate-500 dark:text-slate-400">Tanker Reg #:</span>
-                      <span className="font-mono font-bold text-slate-900 dark:text-white">{verifiedTokenData.truck}</span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-slate-500 dark:text-slate-400">Tank Capacity:</span>
-                      <span className="font-semibold text-slate-900 dark:text-white">{verifiedTokenData.capacity}</span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-slate-500 dark:text-slate-400">Designated Reception:</span>
-                      <span className="font-semibold text-teal-700 dark:text-teal-300">{verifiedTokenData.plant}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Citizen Action Call CTA */}
-                <div className="pt-2">
-                  <a
-                    href="tel:18002337266"
-                    className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white dark:bg-[#0B2032] hover:bg-slate-100 dark:hover:bg-white/10 text-slate-800 dark:text-white font-semibold text-xs transition-colors border border-slate-200/80 dark:border-white/10 shadow-sm"
-                  >
-                    <PhoneCall size={14} className="text-sky-600 dark:text-sky-400" />
-                    <span>Contact Gram Sahayak Desk</span>
-                  </a>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </section>
 

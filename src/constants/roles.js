@@ -12,6 +12,91 @@ export const ROLES = {
   AUDITOR: 'AUDITOR'
 };
 
+// Hierarchical registration & user management authority matrix
+export const CREATION_HIERARCHY = {
+  [ROLES.SUPER_ADMIN]: {
+    level: 1,
+    canCreateRoles: [
+      ROLES.STATE_OFFICER,
+      ROLES.DISTRICT_COORDINATOR,
+      ROLES.BLOCK_COORDINATOR,
+      ROLES.GP_OPERATOR,
+      ROLES.FSTP_OPERATOR,
+      ROLES.VENDOR_ADMIN,
+      ROLES.DRIVER,
+      ROLES.SANITATION_WORKER,
+      ROLES.CITIZEN,
+      ROLES.AUDITOR
+    ],
+    geoLock: 'NONE', // Can assign across the entire state
+    title: 'Statewide Master Authority'
+  },
+  [ROLES.STATE_OFFICER]: {
+    level: 2,
+    canCreateRoles: [
+      ROLES.DISTRICT_COORDINATOR,
+      ROLES.BLOCK_COORDINATOR,
+      ROLES.GP_OPERATOR,
+      ROLES.FSTP_OPERATOR,
+      ROLES.VENDOR_ADMIN,
+      ROLES.DRIVER,
+      ROLES.SANITATION_WORKER,
+      ROLES.CITIZEN,
+      ROLES.AUDITOR
+    ],
+    geoLock: 'NONE', // Can assign across all 33 districts
+    title: 'State Nodal Authority'
+  },
+  [ROLES.DISTRICT_COORDINATOR]: {
+    level: 3,
+    canCreateRoles: [
+      ROLES.BLOCK_COORDINATOR,
+      ROLES.GP_OPERATOR,
+      ROLES.FSTP_OPERATOR,
+      ROLES.VENDOR_ADMIN,
+      ROLES.DRIVER,
+      ROLES.SANITATION_WORKER,
+      ROLES.CITIZEN
+    ],
+    geoLock: 'DISTRICT', // Restricted to assigned district
+    title: 'District Incharge Authority'
+  },
+  [ROLES.BLOCK_COORDINATOR]: {
+    level: 4,
+    canCreateRoles: [
+      ROLES.GP_OPERATOR,
+      ROLES.SANITATION_WORKER,
+      ROLES.DRIVER,
+      ROLES.CITIZEN
+    ],
+    geoLock: 'BLOCK', // Restricted to assigned block
+    title: 'Block Incharge Authority'
+  },
+  [ROLES.GP_OPERATOR]: {
+    level: 5,
+    canCreateRoles: [
+      ROLES.SANITATION_WORKER,
+      ROLES.CITIZEN
+    ],
+    geoLock: 'GP', // Restricted to assigned Gram Panchayat
+    title: 'Gram Panchayat Authority'
+  },
+  [ROLES.VENDOR_ADMIN]: {
+    level: 6,
+    canCreateRoles: [
+      ROLES.DRIVER,
+      ROLES.SANITATION_WORKER
+    ],
+    geoLock: 'VENDOR', // Restricted to agency
+    title: 'Fleet & Crew Authority'
+  },
+  [ROLES.FSTP_OPERATOR]: { level: 7, canCreateRoles: [], geoLock: 'SELF', title: 'Plant Operator' },
+  [ROLES.DRIVER]: { level: 8, canCreateRoles: [], geoLock: 'SELF', title: 'Driver' },
+  [ROLES.SANITATION_WORKER]: { level: 9, canCreateRoles: [], geoLock: 'SELF', title: 'Sanitation Worker' },
+  [ROLES.CITIZEN]: { level: 10, canCreateRoles: [], geoLock: 'SELF', title: 'Citizen' },
+  [ROLES.AUDITOR]: { level: 11, canCreateRoles: [], geoLock: 'SELF', title: 'Auditor' }
+};
+
 export const ROLE_CONFIG = {
   [ROLES.SUPER_ADMIN]: {
     id: ROLES.SUPER_ADMIN,
@@ -258,3 +343,59 @@ export const MOCK_USERS = [
     district: 'Statewide'
   }
 ];
+
+export const getManageableRoles = (currentRole) => {
+  const config = CREATION_HIERARCHY[currentRole];
+  return config ? config.canCreateRoles : [];
+};
+
+export const canCreateAccounts = (currentRole) => {
+  const manageable = getManageableRoles(currentRole);
+  return manageable.length > 0;
+};
+
+export const canEditTargetUser = (actorUser, targetUser) => {
+  if (!actorUser || !targetUser) return false;
+  if (actorUser.id === targetUser.id) return true; // Can always edit own profile
+
+  if (actorUser.role === ROLES.SUPER_ADMIN) return true;
+
+  const actorLevel = CREATION_HIERARCHY[actorUser.role]?.level || 99;
+  const targetLevel = CREATION_HIERARCHY[targetUser.role]?.level || 99;
+
+  // Actor must have strictly higher hierarchy (lower level number)
+  if (actorLevel >= targetLevel) return false;
+
+  // Check geo constraints
+  if (actorUser.role === ROLES.STATE_OFFICER) {
+    return true; // Statewide scope
+  }
+
+  if (actorUser.role === ROLES.DISTRICT_COORDINATOR) {
+    if (!actorUser.district) return true;
+    const actorDist = actorUser.district.split(' ')[0].toLowerCase();
+    const targetDist = (targetUser.district || '').split(' ')[0].toLowerCase();
+    return !targetDist || targetDist.includes(actorDist) || actorDist.includes(targetDist);
+  }
+
+  if (actorUser.role === ROLES.BLOCK_COORDINATOR) {
+    if (!actorUser.block) return true;
+    const actorBlock = actorUser.block.split(' ')[0].toLowerCase();
+    const targetBlock = (targetUser.block || '').split(' ')[0].toLowerCase();
+    return targetBlock.includes(actorBlock) || actorBlock.includes(targetBlock);
+  }
+
+  if (actorUser.role === ROLES.GP_OPERATOR) {
+    if (!actorUser.gp) return true;
+    const actorGp = actorUser.gp.split(' ')[0].toLowerCase();
+    const targetGp = (targetUser.gp || '').split(' ')[0].toLowerCase();
+    return targetGp.includes(actorGp) || actorGp.includes(targetGp);
+  }
+
+  if (actorUser.role === ROLES.VENDOR_ADMIN) {
+    return targetUser.role === ROLES.DRIVER || targetUser.role === ROLES.SANITATION_WORKER;
+  }
+
+  return false;
+};
+

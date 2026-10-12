@@ -10,8 +10,10 @@ import { RequestTimeline } from '../../components/fsm/RequestTimeline';
 import { EvidenceUploadModal } from '../../components/fsm/EvidenceUploadModal';
 import { ManifestModal } from '../../components/fsm/ManifestModal';
 import { PaymentModal } from '../../components/fsm/PaymentModal';
+import { AssignmentModal } from '../../components/fsm/AssignmentModal';
 import { FSM_STATUS, REJECTION_REASONS } from '../../constants/fsm';
 import { exportToPdf, exportToExcel } from '../../services/exportService';
+import { notifySuccess, notifyInfo, notifyWarning, notifyInteractive } from '../../services/toastService';
 import {
   ClipboardList,
   Search,
@@ -50,6 +52,7 @@ export const RequestsPage = () => {
   const [selectedRequest, setSelectedRequest] = useState(null);
 
   // Workflow modals state
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
   const [isManifestModalOpen, setIsManifestModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -75,36 +78,46 @@ export const RequestsPage = () => {
   // Action handlers
   const handleApprove = (req) => {
     transitionRequest(req.id, FSM_STATUS.ACKNOWLEDGED, 'Request acknowledged by GP');
+    notifySuccess(`Request #${req.requestNo} acknowledged & approved by Gram Panchayat.`, 'Request Acknowledged');
   };
 
   const handleInspect = (req) => {
     transitionRequest(req.id, FSM_STATUS.INSPECTED, 'Site verified for vehicle accessibility');
+    notifySuccess(`Household site and road clearance verified for #${req.requestNo}. Ready for dispatch.`, 'Site Verified');
   };
 
   const handleAssignVendor = (req) => {
-    const defaultVendor = vendors[0] || { id: 'ven_01', name: 'Shree Mahamaya Sanitation Services' };
-    const defaultVehicle = vehicles[0] || { id: 'veh_01', regNo: 'CG-04-ME-4821', driverName: 'Ramesh Patel' };
+    setSelectedRequest(req);
+    setIsAssignmentModalOpen(true);
+  };
+
+  const handleConfirmAssignment = (assignmentData) => {
+    if (!selectedRequest) return;
 
     transitionRequest(
-      req.id,
+      selectedRequest.id,
       FSM_STATUS.VEHICLE_ASSIGNED,
-      `Assigned to vendor ${defaultVendor.name}, Vehicle ${defaultVehicle.regNo}`,
+      `Assigned to ${assignmentData.assignedVendorName}, Vehicle ${assignmentData.assignedVehicleNo} (Driver: ${assignmentData.assignedDriverName}). Designated Treatment: ${assignmentData.targetFstpName || 'Nearest FSTP'}`,
       {
-        assignedVendorId: defaultVendor.id,
-        assignedVendorName: defaultVendor.name,
-        assignedVehicleId: defaultVehicle.id,
-        assignedVehicleNo: defaultVehicle.regNo,
-        assignedDriverName: defaultVehicle.driverName
+        ...assignmentData
       }
     );
+
+    notifyInteractive({
+      title: `🚚 Vehicle Assigned to #${selectedRequest.requestNo}`,
+      message: `Assigned ${assignmentData.assignedVehicleNo} (Driver: ${assignmentData.assignedDriverName}) • Target FSTP: ${assignmentData.targetFstpName || 'Nearest Plant'} (${assignmentData.distanceToFstpKm || 10} km)`,
+      type: 'success'
+    });
   };
 
   const handleStartTrip = (req) => {
     transitionRequest(req.id, FSM_STATUS.EN_ROUTE, 'Driver initiated transit with live GPS telemetry');
+    notifyInfo(`Driver has commenced transit to household (${req.village}). Live GPS telemetry active.`, 'Vehicle En Route');
   };
 
   const handleMarkArrived = (req) => {
     transitionRequest(req.id, FSM_STATUS.ARRIVED, 'Vehicle arrived at household site');
+    notifySuccess(`Vehicle arrived at site for #${req.requestNo}. PPE checklist & geotag evidence ready.`, 'Vehicle Arrived');
   };
 
   const handleWorkerEvidenceSubmit = (evidenceData) => {
@@ -119,18 +132,22 @@ export const RequestsPage = () => {
         afterPhotoUrl: evidenceData.afterPhoto
       }
     );
+    notifySuccess(`PPE verified & geotagged photos uploaded. Decanted ${evidenceData.extractedVolumeLitres} L.`, 'Desludging Completed');
   };
 
   const handleTransportToFstp = (req) => {
     transitionRequest(req.id, FSM_STATUS.TRANSPORTING, 'Driver transporting faecal sludge to designated FSTP/STP');
+    notifyInfo(`Sludge being transported to designated treatment facility (${req.targetFstpName || 'FSTP'}). Geofence active.`, 'Transit to FSTP');
   };
 
   const handleFstpSign = (reqId, fstpId, volume, note) => {
     verifyFstpDisposal(reqId, fstpId, volume);
+    notifySuccess(`FSTP operator scanned manifest and verified decanting of ${volume} L. Discharge authorized.`, 'Disposal Verified');
   };
 
   const handleRecordPaymentSubmit = (reqId, method, refNo) => {
     recordPayment(reqId, method, refNo);
+    notifySuccess(`Payment settled via ${method}. Digital receipt generated.`, 'Payment Recorded');
   };
 
   const handleRejectSubmit = () => {
@@ -143,6 +160,7 @@ export const RequestsPage = () => {
       { rejectionCode: rejectionReason }
     );
     setIsRejectModalOpen(false);
+    notifyWarning(`Request #${selectedRequest.requestNo} rejected: ${reasonObj?.label || rejectionReason}`, 'Request Rejected');
   };
 
   const handleExport = (format) => {
@@ -165,6 +183,7 @@ export const RequestsPage = () => {
         rows: filtered,
         filename: 'CG_FSSM_Requests.pdf'
       });
+      notifySuccess('PDF report downloaded successfully.', 'Export Complete');
     } else {
       exportToExcel({
         title: 'Requests Ledger',
@@ -172,6 +191,7 @@ export const RequestsPage = () => {
         rows: filtered,
         filename: 'CG_FSSM_Requests.xlsx'
       });
+      notifySuccess('Excel spreadsheet exported successfully.', 'Export Complete');
     }
   };
 
@@ -528,7 +548,17 @@ export const RequestsPage = () => {
         </div>
       )}
 
-      {/* Modals for worker evidence, manifest, and payment */}
+      {/* Modals for assignment, worker evidence, manifest, and payment */}
+      <AssignmentModal
+        isOpen={isAssignmentModalOpen}
+        onClose={() => setIsAssignmentModalOpen(false)}
+        request={selectedRequest}
+        vehicles={vehicles}
+        fstps={fstps}
+        vendors={vendors}
+        onConfirmAssignment={handleConfirmAssignment}
+      />
+
       <EvidenceUploadModal
         request={selectedRequest}
         isOpen={isEvidenceModalOpen}

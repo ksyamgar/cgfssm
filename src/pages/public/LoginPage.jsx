@@ -7,6 +7,7 @@ import { DataTag } from '../../components/common/DataTag';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { ShieldCheck, Smartphone, KeyRound, UserCheck, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { notifySuccess, notifyError, notifyInfo } from '../../services/toastService';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export const LoginPage = () => {
   const handleSendOtp = () => {
     setOtpSent(true);
     setOtp('123456'); // Demo OTP
+    notifyInfo('Demo 6-digit verification code is 123456', 'OTP Dispatched');
   };
 
   const handleCitizenLogin = async (e) => {
@@ -31,9 +33,12 @@ export const LoginPage = () => {
     setErrorMsg('');
     const res = await loginWithCitizenOtp(phone, otp);
     if (res?.success) {
+      notifySuccess(`Logged in as Citizen (${phone})`, 'Authentication Successful');
       navigate('/app');
     } else {
-      setErrorMsg(res?.message || 'OTP verification failed');
+      const msg = res?.message || 'OTP verification failed';
+      setErrorMsg(msg);
+      notifyError(msg, 'Login Failed');
     }
   };
 
@@ -42,9 +47,12 @@ export const LoginPage = () => {
     setErrorMsg('');
     const res = await loginWithCredentials(email, password);
     if (res?.success) {
+      notifySuccess(`Authenticated successfully as ${res.user?.name || email}`, 'Access Granted');
       navigate('/app');
     } else {
-      setErrorMsg(res?.message || 'Invalid credentials');
+      const msg = res?.message || 'Invalid credentials';
+      setErrorMsg(msg);
+      notifyError(msg, 'Authentication Failed');
     }
   };
 
@@ -118,7 +126,7 @@ export const LoginPage = () => {
               type="submit"
               className="w-full py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-clean-md flex items-center justify-center gap-1.5 pt-2"
             >
-              <span>Sign In to Control Room</span>
+              <span>Sign In to Operations & Monitoring</span>
               <ArrowRight size={15} />
             </button>
           </form>
@@ -192,6 +200,7 @@ export const LoginPage = () => {
                 key={u.id}
                 onClick={() => {
                   loginAsRole(u.role);
+                  notifySuccess(`Switched to ${u.role.replace(/_/g, ' ')} view (${u.name})`, 'Role Activated');
                   navigate('/app');
                 }}
                 className="p-2 rounded-xl bg-slate-50 dark:bg-white/5 hover:bg-teal-50 dark:hover:bg-teal-500/20 border border-slate-200 dark:border-white/10 hover:border-teal-300 dark:hover:border-teal-500/40 text-[11px] font-mono font-medium text-slate-700 dark:text-slate-300 hover:text-teal-800 dark:hover:text-white transition-colors truncate text-left"
