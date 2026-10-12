@@ -12,6 +12,8 @@ dist
 dist-ssr
 scratch
 *.local
+*.sqlite-wal
+*.sqlite-shm
 
 # Editor directories and files
 .vscode/*
