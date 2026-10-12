@@ -1,0 +1,37 @@
+{
+  "name": "CG Rural FSSM Platform | ग्रामीण मल गाद प्रबंधन प्रणाली",
+  "short_name": "CG FSSM",
+  "description": "Department of Panchayat & Rural Development, Govt of Chhattisgarh - Faecal Sludge & Septage Management (FSSM) Digital Operating System, supported by UNICEF.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#04192b",
+  "theme_color": "#0d9488",
+  "icons": [
+    {
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo/fssmlogo.png",
+      "sizes": "500x504",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/og-thumb-square.png",
+      "sizes": "600x600",
+      "type": "image/png"
+    }
+  ]
+}

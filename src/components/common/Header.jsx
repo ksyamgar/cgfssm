@@ -13,9 +13,11 @@ import {
   X,
   ShieldAlert,
   Radio,
-  Sparkles
+  Sparkles,
+  Share2
 } from 'lucide-react';
 import { DataTag } from './DataTag';
+import { notifySuccess } from '../../services/toastService';
 
 export const Header = () => {
   const { currentUser, currentRole, currentRoleConfig, loginAsRole, allRoles, allMockUsers, logout } = useAuth();
@@ -26,6 +28,33 @@ export const Header = () => {
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isLangOpen, setIsLangOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleShare = async () => {
+    const shareData = {
+      title: 'CG Rural FSSM Platform | ग्रामीण मल गाद प्रबंधन प्रणाली, छत्तीसगढ़',
+      text: 'Department of Panchayat & Rural Development, Govt of Chhattisgarh - Faecal Sludge & Septage Management (FSSM) Digital Platform with Live GPS Fleet Tracking, supported by UNICEF.',
+      url: window.location.href,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        // Share dismissed
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        notifySuccess(
+          lang === 'hi'
+            ? 'प्लेटफ़ॉर्म लिंक क्लिपबोर्ड पर कॉपी हो गया! शेयर करने पर आधिकारिक पूर्वावलोकन (Preview) दिखाई देगा।'
+            : 'Platform link copied! Official thumbnail and screen preview will appear when shared.',
+          lang === 'hi' ? 'लिंक कॉपी किया गया' : 'Share Link Copied'
+        );
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
 
   const isAppShell = location.pathname.startsWith('/app');
 
@@ -196,6 +225,16 @@ export const Header = () => {
               {isDarkMode ? <Sun size={17} className="text-amber-400" /> : <Moon size={17} className="text-slate-700" />}
             </button>
 
+            {/* Share Platform Link */}
+            <button
+              onClick={handleShare}
+              className="p-1.5 sm:p-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors shrink-0"
+              title={lang === 'hi' ? 'प्लेटफ़ॉर्म लिंक शेयर करें' : 'Share Platform Link'}
+              aria-label="Share Link"
+            >
+              <Share2 size={17} />
+            </button>
+
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -244,6 +283,16 @@ export const Header = () => {
           >
             {t('nav_app')}
           </Link>
+          <button
+            onClick={() => {
+              setMobileMenuOpen(false);
+              handleShare();
+            }}
+            className="w-full text-left px-3 py-2 rounded-xl text-sm font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-500/10 flex items-center gap-2 transition-colors hover:bg-teal-100 dark:hover:bg-teal-500/20"
+          >
+            <Share2 size={16} />
+            <span>{lang === 'hi' ? 'प्लेटफ़ॉर्म शेयर करें' : 'Share Platform Link'}</span>
+          </button>
         </div>
       )}
     </header>
