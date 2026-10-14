@@ -15,13 +15,19 @@ router.post('/register', async (req, res) => {
       password,
       role = 'CITIZEN',
       designation,
+      areaType = 'RURAL',
+      area_type,
       district = 'Raipur (378)',
       block = 'Dharsiwa (3836)',
       gp = 'Mandir Hasaud (124805)',
       village = 'Mandir Hasaud',
+      ulb = '',
+      ward = '',
       vehicleNo = '',
       companyName = ''
     } = req.body;
+
+    const finalAreaType = area_type || areaType || 'RURAL';
 
     if (!name || !phone) {
       return res.status(400).json({ success: false, message: 'Name and phone number are required.' });
@@ -42,8 +48,8 @@ router.post('/register', async (req, res) => {
 
     // Insert into SQLite
     await dbRun(
-      `INSERT INTO users (id, name, email, phone, password_hash, role, designation, district, block, gp, village, vehicle_no, company_name, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (id, name, email, phone, password_hash, role, designation, area_type, district, block, gp, village, ulb, ward, vehicle_no, company_name, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
         name.trim(),
@@ -52,17 +58,20 @@ router.post('/register', async (req, res) => {
         passwordHash,
         role,
         designation || (role === 'CITIZEN' ? 'Citizen Beneficiary' : role),
+        finalAreaType,
         district,
-        block,
-        gp,
-        village,
+        finalAreaType === 'RURAL' ? block : null,
+        finalAreaType === 'RURAL' ? gp : null,
+        finalAreaType === 'RURAL' ? village : null,
+        finalAreaType === 'URBAN' ? ulb : null,
+        finalAreaType === 'URBAN' ? ward : null,
         vehicleNo,
         companyName,
         1
       ]
     );
 
-    const newUser = await dbGet('SELECT id, name, email, phone, role, designation, district, block, gp, village, vehicle_no, company_name FROM users WHERE id = ?', [userId]);
+    const newUser = await dbGet('SELECT id, name, email, phone, role, designation, area_type, district, block, gp, village, ulb, ward, vehicle_no, company_name FROM users WHERE id = ?', [userId]);
     const token = generateToken(newUser);
 
     // Record audit log

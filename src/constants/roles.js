@@ -229,6 +229,7 @@ export const MOCK_USERS = [
     phone: '9826100001',
     email: 'admin.fssm@cg.gov.in',
     designation: 'State IT Director & System Admin',
+    areaType: 'RURAL',
     district: 'All (State)',
     block: 'All',
     gp: 'All'
@@ -240,6 +241,7 @@ export const MOCK_USERS = [
     phone: '9826100002',
     email: 'state.director@cgrural.gov.in',
     designation: 'Mission Director, SBM-G Chhattisgarh',
+    areaType: 'RURAL',
     district: 'Statewide',
     block: 'All',
     gp: 'All'
@@ -251,6 +253,7 @@ export const MOCK_USERS = [
     phone: '9826100003',
     email: 'dist.raipur@cgrural.gov.in',
     designation: 'District Swachh Bharat Coordinator',
+    areaType: 'RURAL',
     district: 'Raipur (378)',
     districtId: 378,
     block: 'All Blocks',
@@ -263,6 +266,7 @@ export const MOCK_USERS = [
     phone: '9826100004',
     email: 'block.dharsiwa@cgrural.gov.in',
     designation: 'Block Coordinator (SBM-G)',
+    areaType: 'RURAL',
     district: 'Raipur (378)',
     districtId: 378,
     block: 'Dharsiwa (3836)',
@@ -276,6 +280,7 @@ export const MOCK_USERS = [
     phone: '9826100005',
     email: 'gp.mandirhasaud@cgrural.gov.in',
     designation: 'Sarpanch & GP Incharge',
+    areaType: 'RURAL',
     district: 'Raipur (378)',
     block: 'Dharsiwa (3836)',
     gp: 'Mandir Hasaud (124805)',
@@ -289,6 +294,7 @@ export const MOCK_USERS = [
     email: 'fstp.arang@cgrural.gov.in',
     designation: 'FSTP Plant Lead & Chemist',
     plantName: 'Arang Rural FSTP (20 KLD)',
+    areaType: 'RURAL',
     district: 'Raipur (378)',
     block: 'Arang (3835)'
   },
@@ -299,6 +305,7 @@ export const MOCK_USERS = [
     phone: '9826100007',
     email: 'contact@mahamayaclean.in',
     designation: 'Empaneled PSSO Agency Lead',
+    areaType: 'RURAL',
     district: 'Raipur & Durg',
     fleetCount: 6
   },
@@ -310,6 +317,7 @@ export const MOCK_USERS = [
     email: 'ramesh.driver@cgrural.in',
     designation: 'Heavy Vehicle Vacuum Truck Driver',
     vehicleNo: 'CG-04-ME-4821',
+    areaType: 'RURAL',
     district: 'Raipur (378)'
   },
   {
@@ -319,6 +327,7 @@ export const MOCK_USERS = [
     phone: '9826100009',
     email: 'santosh.worker@cgrural.in',
     designation: 'Certified Swachhata Mitra / Desludging Operator',
+    areaType: 'RURAL',
     district: 'Raipur (378)'
   },
   {
@@ -328,6 +337,7 @@ export const MOCK_USERS = [
     phone: '9826198765',
     email: 'bhupendra.farmer@gmail.com',
     designation: 'Resident / Farmer',
+    areaType: 'RURAL',
     district: 'Raipur (378)',
     block: 'Dharsiwa (3836)',
     gp: 'Mandir Hasaud (124805)',
@@ -340,6 +350,7 @@ export const MOCK_USERS = [
     phone: '9826100010',
     email: 'audit.fssm@cggov.in',
     designation: 'Independent Third-Party Quality & Financial Auditor',
+    areaType: 'RURAL',
     district: 'Statewide'
   }
 ];

@@ -81,10 +81,13 @@ export const initDatabase = async () => {
         password_hash TEXT NOT NULL,
         role TEXT NOT NULL,
         designation TEXT,
+        area_type TEXT DEFAULT 'RURAL',
         district TEXT,
         block TEXT,
         gp TEXT,
         village TEXT,
+        ulb TEXT,
+        ward TEXT,
         vehicle_no TEXT,
         company_name TEXT,
         is_active INTEGER DEFAULT 1,
@@ -248,6 +251,22 @@ export const initDatabase = async () => {
       }
     } catch {
       // Column may already exist
+    }
+
+    // Ensure area_type, ulb, ward columns exist in users table
+    try {
+      const userCols = await dbAll("PRAGMA table_info(users)");
+      if (!userCols.some(c => c.name === 'area_type')) {
+        await dbExec("ALTER TABLE users ADD COLUMN area_type TEXT DEFAULT 'RURAL'");
+      }
+      if (!userCols.some(c => c.name === 'ulb')) {
+        await dbExec("ALTER TABLE users ADD COLUMN ulb TEXT");
+      }
+      if (!userCols.some(c => c.name === 'ward')) {
+        await dbExec("ALTER TABLE users ADD COLUMN ward TEXT");
+      }
+    } catch {
+      // Columns may already exist
     }
 
     console.log('✅ SQLite Tables & Relations initialized successfully');

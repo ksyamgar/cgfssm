@@ -21,11 +21,47 @@ import {
   Sparkles,
   Smartphone,
   ShieldCheck,
-  Factory
+  Factory,
+  ZoomIn,
+  Eye,
+  X,
+  HelpCircle
 } from 'lucide-react';
 import { LocationPicker } from '../../components/maps/LocationPicker';
 import { findNearestFstp } from '../../services/locationService';
 import { notifySuccess, notifyWarning, notifyInteractive } from '../../services/toastService';
+
+// Technical visual guides for complicated containment and accessibility questions
+const TECHNICAL_GUIDES = {
+  tankType: {
+    title: 'Containment Tank Type Guide',
+    subtitle: 'सेप्टिक टैंक के प्रकार की पहचान',
+    imageSrc: '/guides/septic_tank_guide.jpg',
+    description: 'A conventional septic tank usually has 1 or 2 rectangular concrete access covers with a central baffle dividing two underground chambers. A leach pit is typically circular with precast concrete rings or brick lining that allows liquids to seep into the ground.',
+    hindiTip: 'टैंक के ढक्कन को देखें: यदि दो आयताकार स्लैब हैं और बीच में दीवार है, तो यह Conventional Septic Tank है। यदि गोल रिंग वाला कुआं जैसा गड्ढा है, तो यह Leach Pit है।'
+  },
+  tankVolume: {
+    title: 'Estimated Tank Capacity Guide',
+    subtitle: 'परिवार के आकार के अनुसार टैंक क्षमता',
+    imageSrc: '/guides/tank_capacity_guide.jpg',
+    description: 'Standard sizing benchmark: Small households (3-4 members) usually have 1,500 Litres. Average families (5-6 members) have 2,500 Litres. Joint families, schools, or community toilets typically require 3,500 to 5,000 Litres.',
+    hindiTip: 'परिवार में सदस्यों की संख्या देखें: 3-4 सदस्य = 1,500 लीटर (छोटा टैंक), 5-6 सदस्य = 2,500 लीटर (मानक पारिवारिक टैंक), 7+ सदस्य = 3,500-5,000 लीटर।'
+  },
+  roadWidth: {
+    title: 'Approach Road Width Guide',
+    subtitle: 'पहुंच मार्ग की चौड़ाई व वाहन चयन',
+    imageSrc: '/guides/road_width_guide.jpg',
+    description: 'Measure the narrowest passage or gully leading from the main road to your house gate. Lanes narrower than 3.5 meters cannot accommodate a heavy 4000L truck and will automatically be assigned an agile tractor-mounted suction unit.',
+    hindiTip: 'अपने घर तक आने वाली गली का सबसे संकरा हिस्सा मापें। यदि रास्ता 3.5 मीटर से संकरा है, तो ट्रैक्टर माउंटेड मशीन भेजी जाएगी ताकि वाहन फंस न जाए।'
+  },
+  distanceFromRoad: {
+    title: 'Distance from Road to Tank Guide',
+    subtitle: 'सड़क से सेप्टिक टैंक तक पाइप की लंबाई',
+    imageSrc: '/guides/hose_distance_guide.jpg',
+    description: 'Measure the walking distance from where the desludging tanker will safely park on the village street across your courtyard/gate to the tank manhole cover. Standard hose length carried on vehicle is 15 meters; longer distances require pipe joining.',
+    hindiTip: 'सड़क के उस स्थान से जहां टैंकर खड़ा होगा, आंगन या घर के अंदर बने सेप्टिक टैंक के ढक्कन तक की दूरी मापें। 15 मीटर तक सामान्य पाइप पहुंचता है।'
+  }
+};
 
 export const CitizenBookingPage = () => {
   const navigate = useNavigate();
@@ -49,6 +85,7 @@ export const CitizenBookingPage = () => {
   } = useGeoScope();
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [activeGuideModal, setActiveGuideModal] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -394,64 +431,255 @@ export const CitizenBookingPage = () => {
         {/* Step 3: Tank Details & Road Access */}
         {currentStep === 3 && (
           <GlassCard title="3. Containment Structure & Site Accessibility" moduleTag="TECHNICAL ESTIMATOR">
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-5">
+              {/* Educational Banner */}
+              <div className="p-3 sm:p-3.5 rounded-xl bg-teal-50/80 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-500/20 flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-200">
+                <Sparkles size={16} className="text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Containment Tank Type</label>
-                  <select
-                    value={formData.tankType}
-                    onChange={(e) => setFormData({ ...formData, tankType: e.target.value })}
-                    className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
-                  >
-                    <option value="CONVENTIONAL_TWO_CHAMBER">Conventional 2-Chamber Septic Tank</option>
-                    <option value="CIRCULAR_PIT">Single Circular Leach Pit</option>
-                    <option value="TWIN_LEACH_PIT">Twin Leach Pit (SBM-G)</option>
-                    <option value="CONTAINMENT_BOX">Masonry Holding Tank</option>
-                  </select>
+                  <span className="font-semibold text-slate-900 dark:text-white">Visual Assistance Guide: </span>
+                  <span>
+                    Tap any photo below to zoom in and see visual examples for your septic tank type, family size capacity, approach road width, and suction hose distance.
+                  </span>
+                  <span className="block mt-0.5 text-[11px] text-teal-700 dark:text-teal-300 font-medium">
+                    (तकनीकी सवालों को समझने के लिए नीचे दिए चित्रों पर टैप करें)
+                  </span>
+                </div>
+              </div>
+
+              {/* 4 Complicated Questions with Visual Aids */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                
+                {/* 1. Containment Tank Type */}
+                <div className="bg-slate-50/70 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-2xl p-3 sm:p-4 flex flex-col justify-between hover:border-teal-500/40 transition-colors shadow-sm">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1">
+                        <span>Containment Tank Type</span>
+                        <span className="text-[10px] text-teal-600 dark:text-teal-400 font-normal hidden sm:inline">(टैंक प्रकार)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setActiveGuideModal(TECHNICAL_GUIDES.tankType)}
+                        className="text-[11px] font-semibold text-teal-700 dark:text-teal-300 hover:text-teal-800 dark:hover:text-teal-200 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-500/30 px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors shrink-0"
+                      >
+                        <Eye size={12} />
+                        <span>Guide / फोटो</span>
+                      </button>
+                    </div>
+
+                    {/* Image Preview Thumbnail */}
+                    <div
+                      onClick={() => setActiveGuideModal(TECHNICAL_GUIDES.tankType)}
+                      className="relative group cursor-pointer overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 mb-3 bg-slate-900 aspect-[16/9] sm:h-32 w-full"
+                    >
+                      <img
+                        src={TECHNICAL_GUIDES.tankType.imageSrc}
+                        alt={TECHNICAL_GUIDES.tankType.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent flex items-end justify-between p-2">
+                        <span className="text-[11px] font-medium text-white/95 truncate">
+                          2-Chamber vs Leach Pit
+                        </span>
+                        <span className="text-[10px] font-bold text-white bg-teal-600/90 hover:bg-teal-500 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm backdrop-blur-sm shrink-0">
+                          <ZoomIn size={11} />
+                          <span>Zoom</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <select
+                      value={formData.tankType}
+                      onChange={(e) => setFormData({ ...formData, tankType: e.target.value })}
+                      className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600 transition-colors"
+                    >
+                      <option value="CONVENTIONAL_TWO_CHAMBER">Conventional 2-Chamber Septic Tank</option>
+                      <option value="CIRCULAR_PIT">Single Circular Leach Pit</option>
+                      <option value="TWIN_LEACH_PIT">Twin Leach Pit (SBM-G)</option>
+                      <option value="CONTAINMENT_BOX">Masonry Holding Tank</option>
+                    </select>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
+                      <span>Concrete cover vs circular soak pit</span>
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">
-                    Estimated Tank Capacity (Litres)
-                  </label>
-                  <select
-                    value={formData.tankVolumeLitres}
-                    onChange={(e) => setFormData({ ...formData, tankVolumeLitres: Number(e.target.value) })}
-                    className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono outline-none focus:border-teal-600"
-                  >
-                    <option value={1500}>1,500 Litres (Small household 3-4 users)</option>
-                    <option value={2500}>2,500 Litres (Standard family 5-6 users)</option>
-                    <option value={3500}>3,500 Litres (Large joint family / School)</option>
-                    <option value={5000}>5,000 Litres (Commercial / Community)</option>
-                  </select>
+                {/* 2. Estimated Tank Capacity */}
+                <div className="bg-slate-50/70 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-2xl p-3 sm:p-4 flex flex-col justify-between hover:border-teal-500/40 transition-colors shadow-sm">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1">
+                        <span>Estimated Tank Capacity</span>
+                        <span className="text-[10px] text-teal-600 dark:text-teal-400 font-normal hidden sm:inline">(क्षमता लीटर में)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setActiveGuideModal(TECHNICAL_GUIDES.tankVolume)}
+                        className="text-[11px] font-semibold text-teal-700 dark:text-teal-300 hover:text-teal-800 dark:hover:text-teal-200 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-500/30 px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors shrink-0"
+                      >
+                        <Eye size={12} />
+                        <span>Guide / फोटो</span>
+                      </button>
+                    </div>
+
+                    {/* Image Preview Thumbnail */}
+                    <div
+                      onClick={() => setActiveGuideModal(TECHNICAL_GUIDES.tankVolume)}
+                      className="relative group cursor-pointer overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 mb-3 bg-slate-900 aspect-[16/9] sm:h-32 w-full"
+                    >
+                      <img
+                        src={TECHNICAL_GUIDES.tankVolume.imageSrc}
+                        alt={TECHNICAL_GUIDES.tankVolume.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent flex items-end justify-between p-2">
+                        <span className="text-[11px] font-medium text-white/95 truncate">
+                          Family Size Sizing Chart
+                        </span>
+                        <span className="text-[10px] font-bold text-white bg-teal-600/90 hover:bg-teal-500 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm backdrop-blur-sm shrink-0">
+                          <ZoomIn size={11} />
+                          <span>Zoom</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <select
+                      value={formData.tankVolumeLitres}
+                      onChange={(e) => setFormData({ ...formData, tankVolumeLitres: Number(e.target.value) })}
+                      className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono outline-none focus:border-teal-600 transition-colors"
+                    >
+                      <option value={1500}>1,500 Litres (Small household 3-4 users)</option>
+                      <option value={2500}>2,500 Litres (Standard family 5-6 users)</option>
+                      <option value={3500}>3,500 Litres (Large joint family / School)</option>
+                      <option value={5000}>5,000 Litres (Commercial / Community)</option>
+                    </select>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
+                      <span>Standard family of 5-6 typically uses 2,500 Litres</span>
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">
-                    Approach Road Width (Meters)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={formData.roadWidthMeters}
-                    onChange={(e) => setFormData({ ...formData, roadWidthMeters: Number(e.target.value) })}
-                    className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono outline-none focus:border-teal-600"
-                  />
-                  <span className="text-[11px] text-slate-500">If &lt; 3.5m, tractor mini-unit will be allocated</span>
+                {/* 3. Approach Road Width */}
+                <div className="bg-slate-50/70 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-2xl p-3 sm:p-4 flex flex-col justify-between hover:border-teal-500/40 transition-colors shadow-sm">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1">
+                        <span>Approach Road Width (Meters)</span>
+                        <span className="text-[10px] text-teal-600 dark:text-teal-400 font-normal hidden sm:inline">(रास्ते की चौड़ाई)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setActiveGuideModal(TECHNICAL_GUIDES.roadWidth)}
+                        className="text-[11px] font-semibold text-teal-700 dark:text-teal-300 hover:text-teal-800 dark:hover:text-teal-200 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-500/30 px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors shrink-0"
+                      >
+                        <Eye size={12} />
+                        <span>Guide / फोटो</span>
+                      </button>
+                    </div>
+
+                    {/* Image Preview Thumbnail */}
+                    <div
+                      onClick={() => setActiveGuideModal(TECHNICAL_GUIDES.roadWidth)}
+                      className="relative group cursor-pointer overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 mb-3 bg-slate-900 aspect-[16/9] sm:h-32 w-full"
+                    >
+                      <img
+                        src={TECHNICAL_GUIDES.roadWidth.imageSrc}
+                        alt={TECHNICAL_GUIDES.roadWidth.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent flex items-end justify-between p-2">
+                        <span className="text-[11px] font-medium text-white/95 truncate">
+                          Tractor (&lt;3.5m) vs Truck (&gt;3.5m)
+                        </span>
+                        <span className="text-[10px] font-bold text-white bg-teal-600/90 hover:bg-teal-500 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm backdrop-blur-sm shrink-0">
+                          <ZoomIn size={11} />
+                          <span>Zoom</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={formData.roadWidthMeters}
+                        onChange={(e) => setFormData({ ...formData, roadWidthMeters: Number(e.target.value) })}
+                        className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono outline-none focus:border-teal-600 transition-colors"
+                      />
+                      <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">m</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
+                      <span>If &lt; 3.5m, mini-tractor unit will be automatically allocated</span>
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">
-                    Distance from Road to Tank (Meters)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.distanceFromRoadMeters}
-                    onChange={(e) => setFormData({ ...formData, distanceFromRoadMeters: Number(e.target.value) })}
-                    className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono outline-none focus:border-teal-600"
-                  />
-                  <span className="text-[11px] text-slate-500">Pipe length required for suction</span>
+                {/* 4. Distance from Road to Tank */}
+                <div className="bg-slate-50/70 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-2xl p-3 sm:p-4 flex flex-col justify-between hover:border-teal-500/40 transition-colors shadow-sm">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1">
+                        <span>Distance to Tank (Meters)</span>
+                        <span className="text-[10px] text-teal-600 dark:text-teal-400 font-normal hidden sm:inline">(सड़क से दूरी)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setActiveGuideModal(TECHNICAL_GUIDES.distanceFromRoad)}
+                        className="text-[11px] font-semibold text-teal-700 dark:text-teal-300 hover:text-teal-800 dark:hover:text-teal-200 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-500/30 px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors shrink-0"
+                      >
+                        <Eye size={12} />
+                        <span>Guide / फोटो</span>
+                      </button>
+                    </div>
+
+                    {/* Image Preview Thumbnail */}
+                    <div
+                      onClick={() => setActiveGuideModal(TECHNICAL_GUIDES.distanceFromRoad)}
+                      className="relative group cursor-pointer overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 mb-3 bg-slate-900 aspect-[16/9] sm:h-32 w-full"
+                    >
+                      <img
+                        src={TECHNICAL_GUIDES.distanceFromRoad.imageSrc}
+                        alt={TECHNICAL_GUIDES.distanceFromRoad.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent flex items-end justify-between p-2">
+                        <span className="text-[11px] font-medium text-white/95 truncate">
+                          Suction Pipe Hose Length
+                        </span>
+                        <span className="text-[10px] font-bold text-white bg-teal-600/90 hover:bg-teal-500 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm backdrop-blur-sm shrink-0">
+                          <ZoomIn size={11} />
+                          <span>Zoom</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={formData.distanceFromRoadMeters}
+                        onChange={(e) => setFormData({ ...formData, distanceFromRoadMeters: Number(e.target.value) })}
+                        className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono outline-none focus:border-teal-600 transition-colors"
+                      />
+                      <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">m</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
+                      <span>Walking distance from parking truck to septic tank manhole</span>
+                    </p>
+                  </div>
                 </div>
+
               </div>
 
               {/* Recommended Fleet Allocation Chip */}
@@ -649,6 +877,77 @@ export const CitizenBookingPage = () => {
               >
                 Book Another Household
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Technical Guide Lightbox Zoom Modal */}
+        {activeGuideModal && (
+          <div
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200"
+            onClick={() => setActiveGuideModal(null)}
+          >
+            <div
+              className="bg-white dark:bg-[#0c1829] border border-slate-200 dark:border-white/20 rounded-2xl max-w-lg w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-slate-200 dark:border-white/10 shrink-0 bg-slate-50/50 dark:bg-white/[0.02]">
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                    {activeGuideModal.title}
+                  </h3>
+                  <p className="text-xs text-teal-600 dark:text-teal-400 font-medium">
+                    {activeGuideModal.subtitle}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveGuideModal(null)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                  aria-label="Close guide"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="overflow-y-auto p-4 sm:p-5 space-y-3.5">
+                {/* Full Visual Guide Image */}
+                <div className="bg-slate-950 rounded-xl overflow-hidden border border-slate-800 p-2 flex items-center justify-center">
+                  <img
+                    src={activeGuideModal.imageSrc}
+                    alt={activeGuideModal.title}
+                    className="w-full max-h-[280px] sm:max-h-[340px] object-contain rounded-lg"
+                  />
+                </div>
+
+                {/* Practical Hindi Tip Box */}
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
+                  <HelpCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block mb-0.5">सलाह / हिंदी निर्देश:</span>
+                    <span className="leading-relaxed">{activeGuideModal.hindiTip}</span>
+                  </div>
+                </div>
+
+                {/* Detailed English Description */}
+                <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-white/[0.03] p-3 rounded-xl border border-slate-200/60 dark:border-white/5">
+                  <span className="font-semibold text-slate-900 dark:text-white block mb-1">Field Guideline:</span>
+                  {activeGuideModal.description}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-4 sm:px-5 py-3 border-t border-slate-200 dark:border-white/10 shrink-0 bg-slate-50/50 dark:bg-white/[0.02] flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setActiveGuideModal(null)}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-colors shadow-sm"
+                >
+                  Got it / समझ गया
+                </button>
+              </div>
             </div>
           </div>
         )}

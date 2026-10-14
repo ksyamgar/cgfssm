@@ -21,6 +21,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { notifySuccess, notifyError, notifyInfo, notifyWarning } from '../../services/toastService';
+import { CG_URBAN_BODIES } from '../../constants/urbanBodies';
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
@@ -42,10 +43,14 @@ export const RegisterPage = () => {
     phone: '',
     email: '',
     password: '',
+    areaType: 'RURAL', // DEFAULT: RURAL
     district: '',
     block: '',
     gp: '',
     village: '',
+    ulb: CG_URBAN_BODIES[0],
+    ward: '',
+    locality: '',
     vehicleNo: '',
     companyName: '',
     latitude: 21.2514,
@@ -371,6 +376,71 @@ export const RegisterPage = () => {
                 />
               </div>
 
+              {/* Mandatory Urban or Rural Question - RURAL AS DEFAULT */}
+              <div className="sm:col-span-2 p-3.5 rounded-xl bg-teal-50/60 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                    <span>Is this registration Urban or Rural? (क्षेत्र प्रकार) *</span>
+                  </label>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-transparent">
+                    Default: Rural (ग्रामीण)
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                  Select whether your location is under a Rural Gram Panchayat (SBM-G) or an Urban Local Body (ULB).
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, areaType: 'RURAL' })}
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                      (formData.areaType || 'RURAL') === 'RURAL'
+                        ? 'border-emerald-500 bg-white dark:bg-cg-navy ring-2 ring-emerald-500/20 shadow-sm'
+                        : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-slate-50/50 dark:bg-white/5 opacity-70'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span className="text-base">🌱</span>
+                        <span>Rural (ग्रामीण)</span>
+                      </span>
+                      {(formData.areaType || 'RURAL') === 'RURAL' && (
+                        <CheckCircle2 size={16} className="text-emerald-600" />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Gram Panchayat, Block & Village jurisdiction under SBM-G
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, areaType: 'URBAN' })}
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                      formData.areaType === 'URBAN'
+                        ? 'border-sky-500 bg-white dark:bg-cg-navy ring-2 ring-sky-500/20 shadow-sm'
+                        : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-slate-50/50 dark:bg-white/5 opacity-70'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span className="text-base">🏢</span>
+                        <span>Urban (शहरी / नगर निकाय)</span>
+                      </span>
+                      {formData.areaType === 'URBAN' && (
+                        <CheckCircle2 size={16} className="text-sky-600" />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Nagar Palik Nigam, Palika Parishad & Urban Wards
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic Jurisdiction Fields based on Urban vs Rural */}
               <div>
                 <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">District (जिला) *</label>
                 <select
@@ -389,57 +459,101 @@ export const RegisterPage = () => {
                 </select>
               </div>
 
-              <div>
-                <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">Block (विकासखंड) *</label>
-                <select
-                  value={formData.block}
-                  onChange={(e) => {
-                    handleBlockChange(e.target.value);
-                    setFormData({ ...formData, block: e.target.value, gp: '', village: '' });
-                  }}
-                  className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
-                  required
-                >
-                  <option value="">Select Block</option>
-                  {blocks.map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-              </div>
+              {(formData.areaType || 'RURAL') === 'RURAL' ? (
+                <>
+                  <div>
+                    <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">Block (विकासखंड) *</label>
+                    <select
+                      value={formData.block}
+                      onChange={(e) => {
+                        handleBlockChange(e.target.value);
+                        setFormData({ ...formData, block: e.target.value, gp: '', village: '' });
+                      }}
+                      className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
+                      required
+                    >
+                      <option value="">Select Block</option>
+                      {blocks.map((b) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div>
-                <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">Gram Panchayat (ग्राम पंचायत)</label>
-                <select
-                  value={formData.gp}
-                  onChange={(e) => {
-                    handleGpChange(e.target.value);
-                    setFormData({ ...formData, gp: e.target.value, village: '' });
-                  }}
-                  className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
-                >
-                  <option value="">Select Gram Panchayat</option>
-                  {gramPanchayats.map((g) => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
-              </div>
+                  <div>
+                    <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">Gram Panchayat (ग्राम पंचायत)</label>
+                    <select
+                      value={formData.gp}
+                      onChange={(e) => {
+                        handleGpChange(e.target.value);
+                        setFormData({ ...formData, gp: e.target.value, village: '' });
+                      }}
+                      className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
+                    >
+                      <option value="">Select Gram Panchayat</option>
+                      {gramPanchayats.map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div>
-                <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">Village (ग्राम / पारा)</label>
-                <select
-                  value={formData.village}
-                  onChange={(e) => {
-                    handleVillageChange(e.target.value);
-                    setFormData({ ...formData, village: e.target.value });
-                  }}
-                  className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
-                >
-                  <option value="">Select Village</option>
-                  {villages.map((v) => (
-                    <option key={v} value={v}>{v}</option>
-                  ))}
-                </select>
-              </div>
+                  <div>
+                    <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">Village (ग्राम / पारा)</label>
+                    <select
+                      value={formData.village}
+                      onChange={(e) => {
+                        handleVillageChange(e.target.value);
+                        setFormData({ ...formData, village: e.target.value });
+                      }}
+                      className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
+                    >
+                      <option value="">Select Village</option>
+                      {villages.map((v) => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">Urban Local Body (ULB / नगर निकाय) *</label>
+                    <select
+                      value={formData.ulb || CG_URBAN_BODIES[0]}
+                      onChange={(e) => setFormData({ ...formData, ulb: e.target.value })}
+                      className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
+                      required
+                    >
+                      {CG_URBAN_BODIES.map((ub) => (
+                        <option key={ub} value={ub}>{ub}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">Ward Number / Zone (वार्ड क्रमांक / ज़ोन) *</label>
+                    <input
+                      type="text"
+                      value={formData.ward}
+                      onChange={(e) => setFormData({ ...formData, ward: e.target.value })}
+                      placeholder="e.g. Ward 14 / Zone 2"
+                      className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
+                      required
+                    >
+                    </input>
+                  </div>
+
+                  <div>
+                    <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">Locality / Mohalla / Colony (मोहल्ला / कॉलोनी)</label>
+                    <input
+                      type="text"
+                      value={formData.locality}
+                      onChange={(e) => setFormData({ ...formData, locality: e.target.value })}
+                      placeholder="e.g. Shanti Nagar, Near Water Tank"
+                      className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-600"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* GPS Location Pinning */}

@@ -1,0 +1,28 @@
+// Chhattisgarh Urban Local Bodies (ULBs) - Nagar Palik Nigams & Nagar Palika Parishads
+export const CG_URBAN_BODIES = [
+  'Nagar Palik Nigam Raipur (नगर पालिक निगम रायपुर)',
+  'Nagar Palik Nigam Birgaon (नगर पालिक निगम बीरगांव)',
+  'Nagar Palik Nigam Bhilai (नगर पालिक निगम भिलाई)',
+  'Nagar Palik Nigam Durg (नगर पालिक निगम दुर्ग)',
+  'Nagar Palik Nigam Bhilai-Charoda (नगर पालिक निगम भिलाई-चरोदा)',
+  'Nagar Palik Nigam Risali (नगर पालिक निगम रिसाली)',
+  'Nagar Palik Nigam Bilaspur (नगर पालिक निगम बिलासपुर)',
+  'Nagar Palik Nigam Korba (नगर पालिक निगम कोरबा)',
+  'Nagar Palik Nigam Rajnandgaon (नगर पालिक निगम राजनांदगांव)',
+  'Nagar Palik Nigam Jagdalpur (नगर पालिक निगम जगदलपुर)',
+  'Nagar Palik Nigam Ambikapur (नगर पालिक निगम अम्बिकापुर)',
+  'Nagar Palik Nigam Raigarh (नगर पालिक निगम रायगढ़)',
+  'Nagar Palik Nigam Dhamtari (नगर पालिक निगम धमतरी)',
+  'Nagar Palik Nigam Chirmiri (नगर पालिक निगम चिरमिरी)',
+  'Nagar Palika Parishad Mahasamund (नगर पालिका परिषद महासमुंद)',
+  'Nagar Palika Parishad Kanker (नगर पालिका परिषद कांकेर)',
+  'Nagar Palika Parishad Kawardha (नगर पालिका परिषद कवर्धा)',
+  'Nagar Palika Parishad Balod (नगर पालिका परिषद बालोद)',
+  'Nagar Palika Parishad Bemetara (नगर पालिका परिषद बेमेतरा)',
+  'Nagar Palika Parishad Mungeli (नगर पालिका परिषद मुंगेली)',
+  'Nagar Palika Parishad Bhatapara (नगर पालिका परिषद भाटापारा)',
+  'Nagar Palika Parishad Tilda-Newra (नगर पालिका परिषद तिल्दा-नेवरा)',
+  'Nagar Palika Parishad Arang (नगर पालिका परिषद आरंग)',
+  'Nagar Palika Parishad Gobra-Nawapara (नगर पालिका परिषद गोबरा-नवापारा)',
+  'Other Urban Local Body (अन्य नगर निकाय)'
+];

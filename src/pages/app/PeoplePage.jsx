@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { ROLE_CONFIG, CREATION_HIERARCHY, ROLES } from '../../constants/roles';
 import { notifySuccess, notifyError, notifyWarning } from '../../services/toastService';
+import { CG_URBAN_BODIES } from '../../constants/urbanBodies';
 
 export const PeoplePage = () => {
   const {
@@ -42,6 +43,7 @@ export const PeoplePage = () => {
   const [filterRole, setFilterRole] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDistrictFilter, setSelectedDistrictFilter] = useState('');
+  const [selectedAreaFilter, setSelectedAreaFilter] = useState('ALL'); // ALL, RURAL, URBAN
 
   // Helper to generate government standard official email from Name and Role
   const generateOfficialEmail = (name, role) => {
@@ -79,7 +81,7 @@ export const PeoplePage = () => {
   const [actionErrorMsg, setActionErrorMsg] = useState('');
   const [isEmailManuallyEdited, setIsEmailManuallyEdited] = useState(false);
 
-  // New User Form State
+  // New User Form State - RURAL is default as requested
   const defaultNewRole = allowedRolesToCreate[0] || ROLES.SANITATION_WORKER;
   const [newUserData, setNewUserData] = useState({
     name: '',
@@ -87,9 +89,12 @@ export const PeoplePage = () => {
     phone: '',
     email: '',
     designation: '',
+    areaType: 'RURAL', // DEFAULT: RURAL
     district: currentUser?.district || 'Raipur (378)',
     block: currentUser?.block || 'Dharsiwa (3836)',
-    gp: currentUser?.gp || 'Mandir Hasaud (124805)'
+    gp: currentUser?.gp || 'Mandir Hasaud (124805)',
+    ulb: CG_URBAN_BODIES[0],
+    ward: ''
   });
 
   // Handle Name Change with Auto-Email Generation
@@ -118,12 +123,16 @@ export const PeoplePage = () => {
   // Filtered Users List
   const filteredUsers = users.filter((u) => {
     const matchesRole = filterRole === 'ALL' || u.role === filterRole;
+    const userArea = u.areaType || 'RURAL';
+    const matchesArea = selectedAreaFilter === 'ALL' || userArea === selectedAreaFilter;
     const matchesSearch =
       !searchQuery ||
       u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
       u.phone.includes(searchQuery) ||
-      (u.designation && u.designation.toLowerCase().includes(searchQuery.toLowerCase()));
+      (u.designation && u.designation.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (u.ulb && u.ulb.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (u.ward && u.ward.toLowerCase().includes(searchQuery.toLowerCase()));
 
     let matchesDistrict = true;
     if (selectedDistrictFilter) {
@@ -138,7 +147,7 @@ export const PeoplePage = () => {
         userDist.includes('all');
     }
 
-    return matchesRole && matchesSearch && matchesDistrict;
+    return matchesRole && matchesArea && matchesSearch && matchesDistrict;
   });
 
   // Handle Create User Submit
@@ -157,12 +166,13 @@ export const PeoplePage = () => {
     // Ensure email is generated if empty
     const finalData = {
       ...newUserData,
+      areaType: newUserData.areaType || 'RURAL',
       email: newUserData.email || generateOfficialEmail(newUserData.name, newUserData.role)
     };
 
     const res = createAccountByAuthority(finalData);
     if (res.success) {
-      const msg = `Account successfully created for ${finalData.name} (${finalData.role})`;
+      const msg = `Account successfully created for ${finalData.name} (${finalData.role} - ${finalData.areaType === 'URBAN' ? 'Urban' : 'Rural'})`;
       setActionSuccessMsg(`✓ ${msg}`);
       notifySuccess(msg, 'Account Created');
       setIsCreateModalOpen(false);
@@ -173,9 +183,12 @@ export const PeoplePage = () => {
         phone: '',
         email: '',
         designation: '',
+        areaType: 'RURAL', // Make rural default
         district: currentUser?.district || 'Raipur (378)',
         block: currentUser?.block || 'Dharsiwa (3836)',
-        gp: currentUser?.gp || 'Mandir Hasaud (124805)'
+        gp: currentUser?.gp || 'Mandir Hasaud (124805)',
+        ulb: CG_URBAN_BODIES[0],
+        ward: ''
       });
       setTimeout(() => setActionSuccessMsg(''), 4000);
     } else {
@@ -278,14 +291,26 @@ export const PeoplePage = () => {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search personnel by name, phone, email, or designation..."
+              placeholder="Search personnel by name, phone, email, designation, or ULB..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white dark:bg-cg-navy border border-slate-200 dark:border-white/15 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-500"
             />
           </div>
 
-          <div className="w-full sm:w-56 shrink-0">
+          <div className="w-full sm:w-48 shrink-0">
+            <select
+              value={selectedAreaFilter}
+              onChange={(e) => setSelectedAreaFilter(e.target.value)}
+              className="w-full bg-white dark:bg-cg-navy border border-slate-200 dark:border-white/15 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-500 font-medium"
+            >
+              <option value="ALL">All Areas (Urban & Rural)</option>
+              <option value="RURAL">🌱 Rural Only (ग्रामीण)</option>
+              <option value="URBAN">🏢 Urban Only (शहरी)</option>
+            </select>
+          </div>
+
+          <div className="w-full sm:w-52 shrink-0">
             <select
               value={selectedDistrictFilter}
               onChange={(e) => setSelectedDistrictFilter(e.target.value)}
@@ -339,6 +364,7 @@ export const PeoplePage = () => {
         {filteredUsers.map((user) => {
           const isEditable = canEditUser(user);
           const isSelf = currentUser?.id === user.id;
+          const isUrban = user.areaType === 'URBAN';
 
           return (
             <div
@@ -364,9 +390,21 @@ export const PeoplePage = () => {
                     </div>
                   </div>
 
-                  <DataTag color={user.role === ROLES.SUPER_ADMIN ? 'emerald' : user.role === ROLES.STATE_OFFICER ? 'teal' : 'cyan'}>
-                    {user.district?.split(' ')[0] || 'STATE'}
-                  </DataTag>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isUrban ? (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-300 font-bold border border-sky-300 dark:border-transparent flex items-center gap-0.5">
+                        <span>🏢</span> URBAN
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-transparent flex items-center gap-0.5">
+                        <span>🌱</span> RURAL
+                      </span>
+                    )}
+
+                    <DataTag color={user.role === ROLES.SUPER_ADMIN ? 'emerald' : user.role === ROLES.STATE_OFFICER ? 'teal' : 'cyan'}>
+                      {user.district?.split(' ')[0] || 'STATE'}
+                    </DataTag>
+                  </div>
                 </div>
 
                 {/* Designation */}
@@ -389,7 +427,9 @@ export const PeoplePage = () => {
                   <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                     <MapPin size={13} className="shrink-0 text-slate-400" />
                     <span className="truncate">
-                      {user.block ? `${user.block}, ` : ''}{user.district || 'Statewide'}
+                      {isUrban
+                        ? `${user.ulb ? `${user.ulb}, ` : ''}${user.ward ? `${user.ward}, ` : ''}${user.district || 'Statewide'}`
+                        : `${user.gp ? `${user.gp}, ` : ''}${user.block ? `${user.block}, ` : ''}${user.district || 'Statewide'}`}
                     </span>
                   </div>
                 </div>
@@ -589,16 +629,89 @@ export const PeoplePage = () => {
                 </div>
               </div>
 
-              {/* Geo Jurisdictional Assignment */}
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3">
-                <div className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <MapPin size={13} className="text-teal-600" />
-                  <span>JURISDICTIONAL SCOPE</span>
+              {/* Mandatory Urban or Rural Question - RURAL IS DEFAULT */}
+              <div className="p-3.5 rounded-xl bg-teal-50/60 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                    <span>Is this account Urban or Rural? (क्षेत्र प्रकार) *</span>
+                  </label>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-transparent">
+                    Default: Rural
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                  Specify whether this account operates within a Rural Panchayat (SBM-G) or an Urban Local Body (ULB).
+                </p>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setNewUserData(prev => ({ ...prev, areaType: 'RURAL' }))}
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                      (newUserData.areaType || 'RURAL') === 'RURAL'
+                        ? 'border-emerald-500 bg-white dark:bg-cg-navy ring-2 ring-emerald-500/20 shadow-sm'
+                        : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-slate-50/50 dark:bg-white/5 opacity-70'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span className="text-base">🌱</span>
+                        <span>Rural (ग्रामीण)</span>
+                      </span>
+                      {(newUserData.areaType || 'RURAL') === 'RURAL' && (
+                        <CheckCircle2 size={16} className="text-emerald-600" />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Gram Panchayat, Block & Village jurisdiction (SBM-G)
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewUserData(prev => ({ ...prev, areaType: 'URBAN' }))}
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                      newUserData.areaType === 'URBAN'
+                        ? 'border-sky-500 bg-white dark:bg-cg-navy ring-2 ring-sky-500/20 shadow-sm'
+                        : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-slate-50/50 dark:bg-white/5 opacity-70'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span className="text-base">🏢</span>
+                        <span>Urban (शहरी / ULB)</span>
+                      </span>
+                      {newUserData.areaType === 'URBAN' && (
+                        <CheckCircle2 size={16} className="text-sky-600" />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Nagar Palik Nigam, Palika Parishad & Urban Wards
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Geo Jurisdictional Assignment (Dynamically switches for Rural vs Urban) */}
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <MapPin size={13} className="text-teal-600" />
+                    <span>
+                      {(newUserData.areaType || 'RURAL') === 'RURAL'
+                        ? 'RURAL JURISDICTIONAL SCOPE (SBM-G)'
+                        : 'URBAN JURISDICTIONAL SCOPE (ULB / WARD)'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300">
+                    {(newUserData.areaType || 'RURAL') === 'RURAL' ? 'Rural Hierarchy' : 'Urban Local Body'}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">District</label>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">District (जिला) *</label>
                     <select
                       value={newUserData.district}
                       disabled={hierarchyConfig.geoLock === 'DISTRICT' || hierarchyConfig.geoLock === 'BLOCK' || hierarchyConfig.geoLock === 'GP'}
@@ -611,20 +724,63 @@ export const PeoplePage = () => {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Block</label>
-                    <select
-                      value={newUserData.block}
-                      disabled={hierarchyConfig.geoLock === 'BLOCK' || hierarchyConfig.geoLock === 'GP'}
-                      onChange={(e) => setNewUserData({ ...newUserData, block: e.target.value })}
-                      className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white disabled:opacity-60 outline-none"
-                    >
-                      <option value="All Blocks">All Blocks</option>
-                      {blocks.map((b) => (
-                        <option key={b} value={b}>{b}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {(newUserData.areaType || 'RURAL') === 'RURAL' ? (
+                    <div>
+                      <label className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Block (विकासखंड) *</label>
+                      <select
+                        value={newUserData.block}
+                        disabled={hierarchyConfig.geoLock === 'BLOCK' || hierarchyConfig.geoLock === 'GP'}
+                        onChange={(e) => setNewUserData({ ...newUserData, block: e.target.value })}
+                        className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white disabled:opacity-60 outline-none"
+                      >
+                        <option value="All Blocks">All Blocks</option>
+                        {blocks.map((b) => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Urban Local Body (ULB / नगर निकाय) *</label>
+                      <select
+                        value={newUserData.ulb || CG_URBAN_BODIES[0]}
+                        onChange={(e) => setNewUserData({ ...newUserData, ulb: e.target.value })}
+                        className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white outline-none"
+                      >
+                        {CG_URBAN_BODIES.map((ub) => (
+                          <option key={ub} value={ub}>{ub}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {(newUserData.areaType || 'RURAL') === 'RURAL' ? (
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Gram Panchayat (ग्राम पंचायत)</label>
+                      <select
+                        value={newUserData.gp}
+                        disabled={hierarchyConfig.geoLock === 'GP'}
+                        onChange={(e) => setNewUserData({ ...newUserData, gp: e.target.value })}
+                        className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white disabled:opacity-60 outline-none"
+                      >
+                        <option value="All GPs">All Gram Panchayats</option>
+                        {gramPanchayats.map((g) => (
+                          <option key={g} value={g}>{g}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Ward Number / Zone (वार्ड क्रमांक / ज़ोन) *</label>
+                      <input
+                        type="text"
+                        value={newUserData.ward}
+                        onChange={(e) => setNewUserData({ ...newUserData, ward: e.target.value })}
+                        placeholder="e.g. Ward 12 / Zone 3"
+                        className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white outline-none"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -751,16 +907,79 @@ export const PeoplePage = () => {
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  District Jurisdiction
+              {/* Area Type Selection for Edit */}
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                  Area Classification (क्षेत्र प्रकार) *
                 </label>
-                <input
-                  type="text"
-                  value={editingUser.district || ''}
-                  onChange={(e) => setEditingUser({ ...editingUser, district: e.target.value })}
-                  className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-teal-600 outline-none"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingUser(prev => ({ ...prev, areaType: 'RURAL' }))}
+                    className={`p-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      (editingUser.areaType || 'RURAL') === 'RURAL'
+                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300'
+                        : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    <span>🌱 Rural (ग्रामीण)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingUser(prev => ({ ...prev, areaType: 'URBAN' }))}
+                    className={`p-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      editingUser.areaType === 'URBAN'
+                        ? 'border-sky-500 bg-sky-50 dark:bg-sky-500/20 text-sky-800 dark:text-sky-300'
+                        : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    <span>🏢 Urban (शहरी)</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    District Jurisdiction
+                  </label>
+                  <input
+                    type="text"
+                    value={editingUser.district || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, district: e.target.value })}
+                    className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-teal-600 outline-none"
+                  />
+                </div>
+
+                {(editingUser.areaType || 'RURAL') === 'RURAL' ? (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      Block / Gram Panchayat
+                    </label>
+                    <input
+                      type="text"
+                      value={editingUser.block || ''}
+                      onChange={(e) => setEditingUser({ ...editingUser, block: e.target.value })}
+                      placeholder="e.g. Dharsiwa"
+                      className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-teal-600 outline-none"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      Urban Local Body (ULB)
+                    </label>
+                    <select
+                      value={editingUser.ulb || CG_URBAN_BODIES[0]}
+                      onChange={(e) => setEditingUser({ ...editingUser, ulb: e.target.value })}
+                      className="w-full bg-white dark:bg-cg-navy border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-teal-600 outline-none"
+                    >
+                      {CG_URBAN_BODIES.map((ub) => (
+                        <option key={ub} value={ub}>{ub}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-end gap-2.5">

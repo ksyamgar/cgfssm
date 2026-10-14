@@ -16,11 +16,13 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   // Store all users in storage or initial mock users
   const [users, setUsers] = useState(() => {
-    return getStorageData(STORAGE_KEYS.PEOPLE, MOCK_USERS);
+    const loaded = getStorageData(STORAGE_KEYS.PEOPLE, MOCK_USERS);
+    return Array.isArray(loaded) ? loaded.map(u => ({ ...u, areaType: u.areaType || 'RURAL' })) : MOCK_USERS;
   });
 
   const [currentUser, setCurrentUser] = useState(() => {
-    return getStorageData('cg_fssm_auth_user', MOCK_USERS[0]);
+    const loaded = getStorageData('cg_fssm_auth_user', MOCK_USERS[0]);
+    return loaded ? { ...loaded, areaType: loaded.areaType || 'RURAL' } : MOCK_USERS[0];
   });
 
   const [loading, setLoading] = useState(false);
@@ -86,10 +88,14 @@ export const AuthProvider = ({ children }) => {
       };
     }
 
+    const areaType = newUserData.areaType || 'RURAL';
+
     // Apply geo-lock based on creator's jurisdiction
     let district = newUserData.district || currentUser.district || 'Statewide';
-    let block = newUserData.block || currentUser.block || 'All Blocks';
-    let gp = newUserData.gp || currentUser.gp || 'All GPs';
+    let block = areaType === 'RURAL' ? (newUserData.block || currentUser.block || 'All Blocks') : '';
+    let gp = areaType === 'RURAL' ? (newUserData.gp || currentUser.gp || 'All GPs') : '';
+    let ulb = areaType === 'URBAN' ? (newUserData.ulb || '') : '';
+    let ward = areaType === 'URBAN' ? (newUserData.ward || '') : '';
 
     if (currentUser.role === ROLES.DISTRICT_COORDINATOR) {
       district = currentUser.district;
@@ -109,9 +115,12 @@ export const AuthProvider = ({ children }) => {
       phone: newUserData.phone,
       email: newUserData.email || '',
       designation: newUserData.designation || ROLE_CONFIG[newUserData.role]?.name || 'Empaneled Official',
+      areaType, // 'RURAL' (default) or 'URBAN'
       district,
       block,
       gp,
+      ulb,
+      ward,
       status: 'ACTIVE',
       createdBy: currentUser.id,
       createdAt: new Date().toISOString()
@@ -199,6 +208,7 @@ export const AuthProvider = ({ children }) => {
       }
       
       // Fallback local registration
+      const areaType = userData.areaType || 'RURAL';
       const newCitizen = {
         id: `usr_${Date.now()}`,
         name: userData.name,
@@ -206,9 +216,13 @@ export const AuthProvider = ({ children }) => {
         phone: userData.phone,
         email: userData.email,
         designation: userData.role === ROLES.CITIZEN ? 'Resident / Citizen' : 'Empaneled Applicant',
+        areaType, // 'RURAL' (default) or 'URBAN'
         district: userData.district || 'Raipur (378)',
-        block: userData.block || 'Dharsiwa (3836)',
-        gp: userData.gp || 'Mandir Hasaud (124805)',
+        block: areaType === 'RURAL' ? (userData.block || 'Dharsiwa (3836)') : '',
+        gp: areaType === 'RURAL' ? (userData.gp || 'Mandir Hasaud (124805)') : '',
+        village: areaType === 'RURAL' ? (userData.village || '') : '',
+        ulb: areaType === 'URBAN' ? (userData.ulb || '') : '',
+        ward: areaType === 'URBAN' ? (userData.ward || '') : '',
         status: userData.role === ROLES.CITIZEN ? 'ACTIVE' : 'PENDING',
         createdAt: new Date().toISOString()
       };
