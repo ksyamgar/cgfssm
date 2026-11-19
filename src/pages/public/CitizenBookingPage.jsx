@@ -66,7 +66,7 @@ const TECHNICAL_GUIDES = {
 export const CitizenBookingPage = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { createRequest, fstps } = useFsm();
+  const { createRequest, fstps, getDistrictTariff } = useFsm();
   const { currentUser } = useAuth();
 
   const {
@@ -112,23 +112,29 @@ export const CitizenBookingPage = () => {
   // Compute nearest FSTP in real-time based on pinned GPS location
   const nearestFstp = findNearestFstp(formData.latitude, formData.longitude, fstps);
 
+  // Dynamic district tariff lookup
+  const currentDistTariff = getDistrictTariff ? getDistrictTariff(selectedDistrict || formData.district) : null;
+  const baseTariffVal = currentDistTariff?.basePriceINR || 800;
+  const baseKmVal = currentDistTariff?.baseDistanceKm || 5;
+  const extraKmRateVal = currentDistTariff?.ratePerAdditionalKmINR || 25;
+  const gpFeeVal = currentDistTariff?.gpAdministrativeFeeINR || 100;
+
   // Dynamic price calculation
   const calculatePrice = () => {
-    const base = 800;
     const estDistanceKm = nearestFstp?.distanceKm ? Math.max(1, Math.round(nearestFstp.distanceKm)) : 8;
-    const ratePerKm = 25;
+    const extraKm = Math.max(0, estDistanceKm - baseKmVal);
     const tankMultiplier =
-      formData.tankVolumeLitres <= 1500
+      currentDistTariff?.tankSizeMultipliers?.[formData.tankVolumeLitres.toString()] ||
+      (formData.tankVolumeLitres <= 1500
         ? 1.0
         : formData.tankVolumeLitres <= 3000
         ? 1.2
         : formData.tankVolumeLitres <= 5000
         ? 1.5
-        : 2.0;
-    const emergencyMult = formData.isEmergency ? 1.25 : 1.0;
-    const gpFee = 100;
+        : 2.0);
+    const emergencyMult = formData.isEmergency ? (currentDistTariff?.emergencyMultiplier || 1.25) : 1.0;
 
-    const total = Math.round(((base + estDistanceKm * ratePerKm) * tankMultiplier + gpFee) * emergencyMult);
+    const total = Math.round(((baseTariffVal + extraKm * extraKmRateVal) * tankMultiplier + gpFeeVal) * emergencyMult);
     return total;
   };
 
@@ -741,24 +747,24 @@ export const CitizenBookingPage = () => {
 
               <div className="p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3 font-mono text-xs">
                 <div className="flex justify-between text-slate-600 dark:text-slate-300">
-                  <span>Base Desludging Tariff (up to 5 km)</span>
-                  <span>₹800.00</span>
+                  <span>Base Desludging Tariff (up to {baseKmVal} km)</span>
+                  <span>₹{baseTariffVal}.00</span>
                 </div>
                 <div className="flex justify-between text-slate-600 dark:text-slate-300">
-                  <span>Distance Haul Surcharge ({nearestFstp?.distanceKm || 8} km to FSTP)</span>
-                  <span>₹{Math.max(0, Math.round(((nearestFstp?.distanceKm || 8) - 5) * 25))}.00</span>
+                  <span>Distance Haul Surcharge ({nearestFstp?.distanceKm || 8} km to FSTP @ ₹{extraKmRateVal}/km)</span>
+                  <span>₹{Math.max(0, Math.round(((nearestFstp?.distanceKm || 8) - baseKmVal) * extraKmRateVal))}.00</span>
                 </div>
                 <div className="flex justify-between text-slate-600 dark:text-slate-300">
                   <span>Tank Capacity Multiplier ({formData.tankVolumeLitres} L)</span>
-                  <span>+ ₹{formData.tankVolumeLitres > 3000 ? 400 : 225}.00</span>
+                  <span>&times; {currentDistTariff?.tankSizeMultipliers?.[formData.tankVolumeLitres.toString()] || (formData.tankVolumeLitres > 3000 ? 1.5 : 1.2)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600 dark:text-slate-300">
                   <span>Gram Panchayat Admin & Sanitation Cess</span>
-                  <span>₹100.00</span>
+                  <span>₹{gpFeeVal}.00</span>
                 </div>
                 {formData.isEmergency && (
                   <div className="flex justify-between text-rose-700 dark:text-rose-400 font-bold">
-                    <span>Emergency Expedited Surcharge (25%)</span>
+                    <span>Emergency Expedited Surcharge ({Math.round(((currentDistTariff?.emergencyMultiplier || 1.25) - 1) * 100)}%)</span>
                     <span>+ ₹{Math.round(estimatedPrice * 0.2)}.00</span>
                   </div>
                 )}

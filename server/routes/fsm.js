@@ -801,17 +801,64 @@ router.put('/tariffs/:district', async (req, res) => {
   try {
     const { district } = req.params;
     const t = req.body;
-    await dbRun(
-      `UPDATE tariffs SET
-        base_price_inr = COALESCE(?, base_price_inr),
-        rate_per_additional_km_inr = COALESCE(?, rate_per_additional_km_inr),
-        emergency_multiplier = COALESCE(?, emergency_multiplier),
-        updated_at = CURRENT_TIMESTAMP
-       WHERE district = ?`,
-      [t.basePriceINR || null, t.ratePerAdditionalKmINR || null, t.emergencyMultiplier || null, district]
-    );
-    res.json({ success: true, message: 'Tariff updated successfully.' });
+    const basePrice = t.basePriceINR !== undefined ? Number(t.basePriceINR) : 800;
+    const baseDistance = t.baseDistanceKm !== undefined ? Number(t.baseDistanceKm) : 5;
+    const ratePerKm = t.ratePerAdditionalKmINR !== undefined ? Number(t.ratePerAdditionalKmINR) : 25;
+    const emergencyMultiplier = t.emergencyMultiplier !== undefined ? Number(t.emergencyMultiplier) : 1.25;
+    const gpFee = t.gpAdministrativeFeeINR !== undefined ? Number(t.gpAdministrativeFeeINR) : 100;
+    const tankMultipliersJson = t.tankSizeMultipliers ? JSON.stringify(t.tankSizeMultipliers) : null;
+
+    if (district === 'ALL' || district === 'GLOBAL' || t.applyToAllDistricts) {
+      // 1. Update/Insert GLOBAL default
+      await dbRun(
+        `INSERT INTO tariffs (id, district, base_price_inr, base_distance_km, rate_per_additional_km_inr, emergency_multiplier, gp_administrative_fee_inr, tank_multipliers_json, updated_at)
+         VALUES ('trf_global', 'GLOBAL', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(district) DO UPDATE SET
+          base_price_inr = excluded.base_price_inr,
+          base_distance_km = excluded.base_distance_km,
+          rate_per_additional_km_inr = excluded.rate_per_additional_km_inr,
+          emergency_multiplier = excluded.emergency_multiplier,
+          gp_administrative_fee_inr = excluded.gp_administrative_fee_inr,
+          tank_multipliers_json = COALESCE(excluded.tank_multipliers_json, tariffs.tank_multipliers_json),
+          updated_at = CURRENT_TIMESTAMP`,
+        [basePrice, baseDistance, ratePerKm, emergencyMultiplier, gpFee, tankMultipliersJson]
+      );
+
+      // 2. If apply to all, update all existing districts in the database
+      if (t.applyToAllDistricts || district === 'ALL') {
+        await dbRun(
+          `UPDATE tariffs SET
+            base_price_inr = ?,
+            base_distance_km = ?,
+            rate_per_additional_km_inr = ?,
+            emergency_multiplier = ?,
+            gp_administrative_fee_inr = ?,
+            updated_at = CURRENT_TIMESTAMP`,
+          [basePrice, baseDistance, ratePerKm, emergencyMultiplier, gpFee]
+        );
+      }
+    }
+
+    if (district !== 'ALL') {
+      const id = `trf_${district.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+      await dbRun(
+        `INSERT INTO tariffs (id, district, base_price_inr, base_distance_km, rate_per_additional_km_inr, emergency_multiplier, gp_administrative_fee_inr, tank_multipliers_json, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(district) DO UPDATE SET
+          base_price_inr = excluded.base_price_inr,
+          base_distance_km = excluded.base_distance_km,
+          rate_per_additional_km_inr = excluded.rate_per_additional_km_inr,
+          emergency_multiplier = excluded.emergency_multiplier,
+          gp_administrative_fee_inr = excluded.gp_administrative_fee_inr,
+          tank_multipliers_json = COALESCE(excluded.tank_multipliers_json, tariffs.tank_multipliers_json),
+          updated_at = CURRENT_TIMESTAMP`,
+        [id, district, basePrice, baseDistance, ratePerKm, emergencyMultiplier, gpFee, tankMultipliersJson]
+      );
+    }
+
+    res.json({ success: true, message: `Tariff rules for ${district} saved successfully.` });
   } catch (err) {
+    console.error('Failed to update tariff:', err);
     res.status(500).json({ success: false, message: 'Failed to update tariff.' });
   }
 });

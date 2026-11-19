@@ -4,7 +4,9 @@ import {
   getStorageData,
   setStorageData,
   initializeStorage,
-  STORAGE_KEYS
+  STORAGE_KEYS,
+  ALL_33_DISTRICTS,
+  DEFAULT_GLOBAL_TARIFF
 } from '../services/storageService';
 import { apiService } from '../services/apiService';
 import { stepVehicleSimulation, syncTraqIndiaDevicesToVehicles } from '../services/traqIndia';
@@ -590,6 +592,64 @@ export const FsmProvider = ({ children }) => {
     );
   };
 
+  // Helper to query district-specific or global fallback tariff
+  const getDistrictTariff = useCallback((district) => {
+    if (!district || district === 'GLOBAL' || district === 'ALL') {
+      return tariffs['GLOBAL'] || DEFAULT_GLOBAL_TARIFF;
+    }
+    if (tariffs[district]) return tariffs[district];
+
+    // Normalize match (e.g. "Balod (646)" vs "Balod")
+    const cleanDist = district.replace(/\s*\(\d+\)$/, '').trim().toLowerCase();
+    const foundKey = Object.keys(tariffs).find(k => {
+      const cleanKey = k.replace(/\s*\(\d+\)$/, '').trim().toLowerCase();
+      return cleanKey === cleanDist || cleanKey.includes(cleanDist) || cleanDist.includes(cleanKey);
+    });
+
+    if (foundKey && tariffs[foundKey]) return tariffs[foundKey];
+    return tariffs['GLOBAL'] || DEFAULT_GLOBAL_TARIFF;
+  }, [tariffs]);
+
+  // Update dynamic tariff for a single district or bulk apply to all 33 districts
+  const updateTariff = async (district, tariffData, applyToAll = false) => {
+    const nextTariffs = { ...tariffs };
+    const cleanTariff = {
+      basePriceINR: Number(tariffData.basePriceINR) || 800,
+      baseDistanceKm: Number(tariffData.baseDistanceKm) || 5,
+      ratePerAdditionalKmINR: Number(tariffData.ratePerAdditionalKmINR) || 25,
+      emergencyMultiplier: Number(tariffData.emergencyMultiplier) || 1.25,
+      gpAdministrativeFeeINR: Number(tariffData.gpAdministrativeFeeINR) || 100,
+      tankSizeMultipliers: tariffData.tankSizeMultipliers || {
+        '1500': 1.0,
+        '2500': 1.2,
+        '3500': 1.4,
+        '5000': 1.8,
+        '8000': 2.4
+      },
+      updatedAt: new Date().toISOString()
+    };
+
+    if (applyToAll || district === 'ALL' || district === 'GLOBAL') {
+      nextTariffs['GLOBAL'] = cleanTariff;
+      ALL_33_DISTRICTS.forEach(d => {
+        nextTariffs[d] = { ...cleanTariff, district: d };
+      });
+    } else {
+      nextTariffs[district] = { ...cleanTariff, district };
+    }
+
+    setTariffs(nextTariffs);
+    setStorageData(STORAGE_KEYS.TARIFFS, nextTariffs);
+
+    try {
+      await apiService.updateTariff(district, { ...cleanTariff, applyToAllDistricts: applyToAll });
+    } catch (e) {
+      console.warn('Backend SQLite updateTariff fallback:', e);
+    }
+
+    return nextTariffs;
+  };
+
   // Re-fetch all fresh data on demand
   const refreshData = () => {
     return loadDynamicData();
@@ -603,6 +663,8 @@ export const FsmProvider = ({ children }) => {
         fstps,
         vendors,
         tariffs,
+        getDistrictTariff,
+        updateTariff,
         auditLogs,
         stats,
         loading,

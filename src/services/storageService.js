@@ -811,7 +811,20 @@ const INITIAL_REQUESTS = [
   }
 ];
 
-const INITIAL_TARIFFS = {
+export const ALL_33_DISTRICTS = [
+  'Balod (646)', 'Balodabazar-Bhatapara (644)', 'Balrampur-Ramanujganj (649)',
+  'Bastar (374)', 'Bemetara (650)', 'Bijapur (636)', 'Bilaspur (375)',
+  'Dakshin Bastar Dantewada (376)', 'Dhamtari (377)', 'Durg (378)',
+  'Gariyaband (645)', 'Gaurela-Pendra-Marwahi (734)', 'Janjgir-Champa (379)',
+  'Jashpur (380)', 'Kabeerdham (382)', 'Khairagarh-Chhuikhadan-Gandai (759)',
+  'Kondagaon (643)', 'Korba (383)', 'Korea (384)', 'Mahasamund (385)',
+  'Manendragarh-Chirmiri-Bharatpur(M C B) (760)', 'Mohla-Manpur-Ambagarh Chouki (761)',
+  'Mungeli (647)', 'Narayanpur (637)', 'Raigarh (386)', 'Raipur (387)',
+  'Rajnandgaon (388)', 'Sakti (762)', 'Sarangarh-Bilaigarh (763)',
+  'Sukma (642)', 'Surajpur (648)', 'Surguja (389)', 'Uttar Bastar Kanker (381)'
+];
+
+export const DEFAULT_GLOBAL_TARIFF = {
   basePriceINR: 800,
   baseDistanceKm: 5,
   ratePerAdditionalKmINR: 25,
@@ -824,6 +837,18 @@ const INITIAL_TARIFFS = {
   },
   emergencyMultiplier: 1.25,
   gpAdministrativeFeeINR: 100
+};
+
+const INITIAL_TARIFFS = {
+  GLOBAL: DEFAULT_GLOBAL_TARIFF,
+  ...ALL_33_DISTRICTS.reduce((acc, d) => {
+    acc[d] = {
+      ...DEFAULT_GLOBAL_TARIFF,
+      basePriceINR: d.includes('Durg') ? 850 : d.includes('Bastar') ? 900 : 800,
+      ratePerAdditionalKmINR: d.includes('Bastar') || d.includes('Bijapur') || d.includes('Sukma') ? 30 : 25
+    };
+    return acc;
+  }, {})
 };
 
 const INITIAL_SETTINGS = {
@@ -892,7 +917,8 @@ export const initializeStorage = () => {
   if (!localStorage.getItem(STORAGE_KEYS.VENDORS)) {
     setStorageData(STORAGE_KEYS.VENDORS, INITIAL_VENDORS);
   }
-  if (!localStorage.getItem(STORAGE_KEYS.TARIFFS)) {
+  const existingTariffs = getStorageData(STORAGE_KEYS.TARIFFS, null);
+  if (!existingTariffs || !existingTariffs['GLOBAL'] || Object.keys(existingTariffs).length < 5) {
     setStorageData(STORAGE_KEYS.TARIFFS, INITIAL_TARIFFS);
   }
   if (!localStorage.getItem(STORAGE_KEYS.SETTINGS)) {

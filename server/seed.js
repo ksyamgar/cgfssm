@@ -515,45 +515,40 @@ export const seedDatabase = async (force = false) => {
       );
     }
 
-    // 6. SEED TARIFFS FOR DISTRICTS
-    const tariffs = [
-      {
-        id: 'trf_raipur',
-        district: 'Raipur (378)',
-        base_price_inr: 800,
-        base_distance_km: 5,
-        rate_per_additional_km_inr: 25,
-        emergency_multiplier: 1.25,
-        gp_administrative_fee_inr: 100,
-        tank_multipliers_json: JSON.stringify({ '1500': 1.0, '2500': 1.2, '3500': 1.4, '5000': 1.8, '8000': 2.4 })
-      },
-      {
-        id: 'trf_durg',
-        district: 'Durg (377)',
-        base_price_inr: 850,
-        base_distance_km: 5,
-        rate_per_additional_km_inr: 28,
-        emergency_multiplier: 1.25,
-        gp_administrative_fee_inr: 100,
-        tank_multipliers_json: JSON.stringify({ '1500': 1.0, '2500': 1.2, '3500': 1.4, '5000': 1.8, '8000': 2.4 })
-      },
-      {
-        id: 'trf_bilaspur',
-        district: 'Bilaspur (375)',
-        base_price_inr: 800,
-        base_distance_km: 5,
-        rate_per_additional_km_inr: 25,
-        emergency_multiplier: 1.25,
-        gp_administrative_fee_inr: 100,
-        tank_multipliers_json: JSON.stringify({ '1500': 1.0, '2500': 1.2, '3500': 1.4, '5000': 1.8, '8000': 2.4 })
-      }
+    // 6. SEED TARIFFS FOR ALL 33 DISTRICTS & GLOBAL DEFAULT
+    const ALL_33_DISTRICTS = [
+      'Balod (646)', 'Balodabazar-Bhatapara (644)', 'Balrampur-Ramanujganj (649)',
+      'Bastar (374)', 'Bemetara (650)', 'Bijapur (636)', 'Bilaspur (375)',
+      'Dakshin Bastar Dantewada (376)', 'Dhamtari (377)', 'Durg (378)',
+      'Gariyaband (645)', 'Gaurela-Pendra-Marwahi (734)', 'Janjgir-Champa (379)',
+      'Jashpur (380)', 'Kabeerdham (382)', 'Khairagarh-Chhuikhadan-Gandai (759)',
+      'Kondagaon (643)', 'Korba (383)', 'Korea (384)', 'Mahasamund (385)',
+      'Manendragarh-Chirmiri-Bharatpur(M C B) (760)', 'Mohla-Manpur-Ambagarh Chouki (761)',
+      'Mungeli (647)', 'Narayanpur (637)', 'Raigarh (386)', 'Raipur (387)',
+      'Rajnandgaon (388)', 'Sakti (762)', 'Sarangarh-Bilaigarh (763)',
+      'Sukma (642)', 'Surajpur (648)', 'Surguja (389)', 'Uttar Bastar Kanker (381)'
     ];
 
-    for (const t of tariffs) {
+    const standardTankMultipliers = JSON.stringify({ '1500': 1.0, '2500': 1.2, '3500': 1.4, '5000': 1.8, '8000': 2.4 });
+
+    // Seed Global Default
+    await dbRun(
+      `INSERT OR REPLACE INTO tariffs (id, district, base_price_inr, base_distance_km, rate_per_additional_km_inr, emergency_multiplier, gp_administrative_fee_inr, tank_multipliers_json)
+       VALUES ('trf_global', 'GLOBAL', 800, 5, 25, 1.25, 100, ?)`,
+      [standardTankMultipliers]
+    );
+
+    // Seed all 33 districts
+    for (const d of ALL_33_DISTRICTS) {
+      const id = `trf_${d.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+      // District specific variations e.g. Durg, Bastar, Raipur
+      const basePrice = d.includes('Durg') ? 850 : d.includes('Bastar') ? 900 : 800;
+      const ratePerKm = d.includes('Bastar') || d.includes('Bijapur') || d.includes('Sukma') ? 30 : 25;
+
       await dbRun(
         `INSERT OR REPLACE INTO tariffs (id, district, base_price_inr, base_distance_km, rate_per_additional_km_inr, emergency_multiplier, gp_administrative_fee_inr, tank_multipliers_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [t.id, t.district, t.base_price_inr, t.base_distance_km, t.rate_per_additional_km_inr, t.emergency_multiplier, t.gp_administrative_fee_inr, t.tank_multipliers_json]
+         VALUES (?, ?, ?, 5, ?, 1.25, 100, ?)`,
+        [id, d, basePrice, ratePerKm, standardTankMultipliers]
       );
     }
 
