@@ -391,25 +391,64 @@ export const RequestsPage = () => {
                   )}
 
                   {selectedRequest.status === FSM_STATUS.VEHICLE_ASSIGNED && (
+                    <div className="space-y-2">
+                      <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <CheckCircle2 size={13} className="text-amber-600" />
+                          <span>Assigned Pilot: {selectedRequest.assignedDriverName || 'Driver'}</span>
+                        </div>
+                        <div className="text-[11px] opacity-80 mt-0.5">
+                          Awaiting pilot acceptance. As an official/dispatcher, you can also manually confirm acceptance:
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          transitionRequest(
+                            selectedRequest.id,
+                            FSM_STATUS.TRIP_SCHEDULED,
+                            `Trip confirmed by operator for Driver ${selectedRequest.assignedDriverName || 'Pilot'}. Vehicle staged for dispatch.`,
+                            { driverAcceptanceStatus: 'ACCEPTED' }
+                          );
+                          notifySuccess(`Trip accepted for Driver ${selectedRequest.assignedDriverName}. Ready for transit.`, 'Trip Scheduled');
+                        }}
+                        className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5"
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>Confirm Pilot Acceptance & Unlock Vehicle</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {selectedRequest.status === FSM_STATUS.TRIP_SCHEDULED && (
                     <button
                       type="button"
                       onClick={() => handleStartTrip(selectedRequest)}
                       className="w-full py-2.5 rounded-xl bg-cg-teal hover:bg-cg-tealDark text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5"
                     >
                       <Truck size={15} />
-                      <span>Driver: Start Transit (GPS Active)</span>
+                      <span>Start Transit (Live Telemetry Active)</span>
                     </button>
                   )}
 
                   {selectedRequest.status === FSM_STATUS.EN_ROUTE && (
                     <div className="space-y-2">
+                      <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-300 dark:border-purple-500/30 text-purple-900 dark:text-purple-200 text-xs">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <CheckCircle2 size={13} className="text-purple-600" />
+                          <span>Household Arrival Handshake Security</span>
+                        </div>
+                        <div className="text-[11px] opacity-80 mt-0.5">
+                          Verification Code: <strong className="font-mono">{selectedRequest.verificationCode || selectedRequest.otp || '938102'}</strong>
+                        </div>
+                      </div>
                       <button
                         type="button"
                         onClick={() => handleMarkArrived(selectedRequest)}
                         className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5"
                       >
                         <CheckCircle2 size={15} />
-                        <span>Mark Vehicle Arrived (≤150m)</span>
+                        <span>Verify Right House Handshake & Arrive</span>
                       </button>
                       <button
                         type="button"

@@ -477,11 +477,19 @@ export const LandingPage = () => {
                   </Link>
 
                   <Link
-                    to="/live-map"
+                    to="/process"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-500/15 dark:hover:bg-teal-500/25 text-teal-800 dark:text-teal-300 font-bold text-xs sm:text-sm border border-teal-200 dark:border-teal-500/30 shadow-sm transition-all hover:scale-105"
+                  >
+                    <Sparkles size={16} className="text-teal-600 dark:text-teal-400" />
+                    <span>How the Process Works</span>
+                  </Link>
+
+                  <Link
+                    to="/dashboard"
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 dark:bg-white/10 dark:hover:bg-white/15 text-slate-800 dark:text-white font-bold text-xs sm:text-sm border border-slate-300 dark:border-white/20 shadow-sm transition-all hover:border-slate-400"
                   >
                     <Navigation size={16} className="text-sky-600 dark:text-sky-400" />
-                    <span>View State Telemetry Map</span>
+                    <span>State Telemetry Map</span>
                   </Link>
                 </div>
               </div>

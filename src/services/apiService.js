@@ -139,6 +139,37 @@ export const apiService = {
     return await res.json();
   },
 
+  async deleteVehicle(id) {
+    const res = await fetch(`${API_BASE}/fsm/vehicles/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    return await res.json();
+  },
+
+  // DRIVERS API
+  async getDrivers(district = null) {
+    try {
+      const query = district ? `?district=${encodeURIComponent(district)}` : '';
+      const res = await fetch(`${API_BASE}/fsm/drivers${query}`, {
+        headers: getHeaders()
+      });
+      const data = await res.json();
+      return data.drivers || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async registerDriver(driverData) {
+    const res = await fetch(`${API_BASE}/fsm/drivers`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(driverData)
+    });
+    return await res.json();
+  },
+
   async bulkUpsertVehicles(vehiclesList) {
     try {
       const res = await fetch(`${API_BASE}/fsm/vehicles/bulk`, {
@@ -180,6 +211,14 @@ export const apiService = {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(updateData)
+    });
+    return await res.json();
+  },
+
+  async deleteFstp(id) {
+    const res = await fetch(`${API_BASE}/fsm/fstps/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders()
     });
     return await res.json();
   },

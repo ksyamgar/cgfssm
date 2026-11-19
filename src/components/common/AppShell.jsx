@@ -522,7 +522,7 @@ export const AppShell = ({ children }) => {
               {/* Exact Copyright Notice */}
               <div className="text-center md:text-right text-[11px] text-slate-500 dark:text-slate-400">
                 <p className="font-medium tracking-tight">
-                  © Copyright © United Nations Children's Fund (UNICEF) Chhattisgarh | Designed by Raj Yamgar @UNICEF 2026, India. All rights reserved.
+                  Designed and developed by Raj Yamagar and supported by United Nations Children's Fund (UNICEF) Chhattisgarh
                 </p>
               </div>
             </div>

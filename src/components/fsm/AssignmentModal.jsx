@@ -13,7 +13,8 @@ import {
   User,
   Phone,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Users
 } from 'lucide-react';
 
 export const AssignmentModal = ({
@@ -27,8 +28,8 @@ export const AssignmentModal = ({
 }) => {
   if (!isOpen || !request) return null;
 
-  const citizenLat = request.latitude || 21.2514;
-  const citizenLng = request.longitude || 81.6296;
+  const citizenLat = request.lat || request.latitude || 21.2514;
+  const citizenLng = request.lng || request.longitude || 81.6296;
 
   // Compute nearest FSTP dynamically
   const nearestFstp = useMemo(() => {
@@ -61,6 +62,35 @@ export const AssignmentModal = ({
   const selectedVehicle = vehiclesWithDistance.find((v) => v.id === selectedVehicleId) || vehiclesWithDistance[0];
   const selectedFstp = fstps.find((f) => f.id === selectedFstpId) || nearestFstp;
 
+  // Selected driver from the assigned driver pool of the selected vehicle
+  const availableDrivers = useMemo(() => {
+    if (!selectedVehicle) return [];
+    if (selectedVehicle.assignedDrivers && selectedVehicle.assignedDrivers.length > 0) {
+      return selectedVehicle.assignedDrivers;
+    }
+    if (selectedVehicle.driverName) {
+      return [{
+        id: selectedVehicle.driverId || 'drv_1',
+        name: selectedVehicle.driverName,
+        phone: selectedVehicle.driverPhone || '9826100008'
+      }];
+    }
+    return [{ id: 'usr_driver', name: 'Ramesh Patel', phone: '9826100008' }];
+  }, [selectedVehicle]);
+
+  const [selectedDriverId, setSelectedDriverId] = useState(
+    availableDrivers[0]?.id || ''
+  );
+
+  // Sync selected driver if vehicle changes
+  React.useEffect(() => {
+    if (availableDrivers.length > 0) {
+      setSelectedDriverId(availableDrivers[0].id);
+    }
+  }, [selectedVehicleId, availableDrivers]);
+
+  const selectedDriver = availableDrivers.find(d => d.id === selectedDriverId) || availableDrivers[0];
+
   // Auto-assign nearest vehicle + FSTP
   const handleAutoAssign = () => {
     if (vehiclesWithDistance.length > 0) {
@@ -83,17 +113,23 @@ export const AssignmentModal = ({
       ? calculateDistanceKm(citizenLat, citizenLng, selectedFstp.lat, selectedFstp.lng)
       : (request.distanceToFstpKm || 12);
 
+    const chosenDriverName = selectedDriver?.name || selectedVehicle.driverName || 'Designated Driver';
+    const chosenDriverPhone = selectedDriver?.phone || selectedVehicle.driverPhone || '9826100008';
+    const chosenDriverId = selectedDriver?.id || selectedVehicle.driverId || 'usr_driver';
+
     onConfirmAssignment({
       assignedVendorId: chosenVendor.id,
       assignedVendorName: chosenVendor.name,
       assignedVehicleId: selectedVehicle.id,
       assignedVehicleNo: selectedVehicle.regNo,
-      assignedDriverName: selectedVehicle.driverName || 'Designated Driver',
-      driverPhone: selectedVehicle.driverPhone || '9876543210',
+      assignedDriverId: chosenDriverId,
+      assignedDriverName: chosenDriverName,
+      driverPhone: chosenDriverPhone,
       targetFstpId: selectedFstp?.id,
       targetFstpName: selectedFstp?.name,
       distanceToFstpKm: distanceToFstp,
-      vehicleDistanceToCitizenKm: selectedVehicle.distanceKm
+      vehicleDistanceToCitizenKm: selectedVehicle.distanceKm,
+      driverAcceptanceStatus: 'PENDING_ACCEPTANCE'
     });
     onClose();
   };
@@ -158,7 +194,7 @@ export const AssignmentModal = ({
               </label>
               {nearestFstp && (
                 <span className="text-[10px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-500/20 px-2 py-0.5 rounded-full border border-teal-200 dark:border-transparent">
-                  ★ Closest: {nearestFstp.name} ({nearestFstp.distanceKm} km away)
+                  ★ Nearest: {nearestFstp.name} ({nearestFstp.distanceKm || calculateDistanceKm(citizenLat, citizenLng, nearestFstp.lat, nearestFstp.lng)} km)
                 </span>
               )}
             </div>
@@ -190,7 +226,7 @@ export const AssignmentModal = ({
                           )}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                          {fstp.location} • Type: {fstp.type || 'FSTP'}
+                          {fstp.district} • Cap: {fstp.capacityKLD || fstp.capacityKld || 15} KLD
                         </div>
                       </div>
                       <input
@@ -203,7 +239,7 @@ export const AssignmentModal = ({
 
                     <div className="mt-2 pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-mono">
                       <span className="text-slate-600 dark:text-slate-400">
-                        Cap: {fstp.capacityKld || 15} KLD ({fstp.utilization || '42%'} full)
+                        Vol: {fstp.currentVolumeKLD || 0} KLD
                       </span>
                       <span className="font-bold text-teal-700 dark:text-teal-300 flex items-center gap-0.5">
                         <Navigation size={11} />
@@ -216,22 +252,23 @@ export const AssignmentModal = ({
             </div>
           </div>
 
-          {/* 2. Select Desludging Vehicle & Driver */}
+          {/* 2. Select Desludging Vehicle */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
                 <Truck size={15} className="text-teal-600" />
-                <span>2. Assign Desludging Vehicle & Driver</span>
+                <span>2. Select Desludging Vehicle</span>
               </label>
               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                Sorted by closest distance to citizen
+                Sorted by proximity to citizen
               </span>
             </div>
 
-            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {vehiclesWithDistance.map((veh, idx) => {
                 const isSelected = selectedVehicleId === veh.id;
                 const isClosest = idx === 0;
+                const isRural = (veh.areaType || 'RURAL') === 'RURAL';
 
                 return (
                   <div
@@ -254,32 +291,33 @@ export const AssignmentModal = ({
                           <span className="font-mono font-bold text-slate-900 dark:text-white">
                             {veh.regNo}
                           </span>
-                          {veh.isApiGps ? (
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-sky-100 dark:bg-sky-500/30 text-sky-800 dark:text-sky-300 font-bold">
-                              🛰️ Traq Live GPS
+                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${
+                            isRural
+                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/30'
+                              : 'bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-500/30'
+                          }`}>
+                            {isRural ? '🌾 Rural' : '🏙️ Urban'}
+                          </span>
+                          {veh.hasGpsDevice ? (
+                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-teal-100 dark:bg-teal-500/30 text-teal-800 dark:text-teal-300 font-bold">
+                              🛰️ TraqIndia GPS
                             </span>
                           ) : (
                             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300">
-                              Standard GPS
+                              App GPS
                             </span>
                           )}
                           {isClosest && (
                             <span className="text-[9px] bg-emerald-100 dark:bg-emerald-500/30 text-emerald-800 dark:text-emerald-300 px-1 rounded font-mono font-bold">
-                              CLOSEST VEHICLE
+                              CLOSEST
                             </span>
                           )}
                         </div>
 
                         <div className="text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-3 mt-0.5">
-                          <span className="flex items-center gap-1">
-                            <User size={11} />
-                            {veh.driverName}
-                          </span>
-                          <span className="flex items-center gap-1 font-mono text-slate-500">
-                            <Phone size={11} />
-                            {veh.driverPhone || '98261XXXXX'}
-                          </span>
-                          <span>• Cap: {veh.capacityLitres || 3000} L</span>
+                          <span>{veh.district}</span>
+                          <span>• Cap: {veh.capacityLitres || 4000} L</span>
+                          <span>• {veh.assignedDrivers?.length || 1} Registered Pilot(s)</span>
                         </div>
                       </div>
                     </div>
@@ -298,6 +336,57 @@ export const AssignmentModal = ({
               })}
             </div>
           </div>
+
+          {/* 3. Assign Driver from Vehicle Driver Pool */}
+          {selectedVehicle && (
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Users size={15} className="text-teal-600" />
+                  <span>3. Select Designated Driver for Trip Dispatch</span>
+                </label>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  From {selectedVehicle.regNo} Driver Pool
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                The trip assignment will be forwarded directly to this driver. When the driver accepts on their terminal, the vehicle unlocks for collection.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                {availableDrivers.map((d) => {
+                  const isDriverSelected = selectedDriverId === d.id;
+                  return (
+                    <div
+                      key={d.id}
+                      onClick={() => setSelectedDriverId(d.id)}
+                      className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                        isDriverSelected
+                          ? 'bg-teal-50 dark:bg-teal-950/60 border-teal-500 text-teal-900 dark:text-teal-200'
+                          : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="font-semibold text-xs flex items-center gap-1.5">
+                          <User size={13} className="text-teal-600" />
+                          <span>{d.name}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
+                          <Phone size={10} />
+                          <span>{d.phone}</span>
+                        </div>
+                      </div>
+                      <input
+                        type="radio"
+                        checked={isDriverSelected}
+                        onChange={() => setSelectedDriverId(d.id)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Route Summary */}
           {selectedVehicle && selectedFstp && (

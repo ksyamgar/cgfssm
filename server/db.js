@@ -167,6 +167,7 @@ export const initDatabase = async () => {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         type TEXT DEFAULT 'FSTP',
+        area_type TEXT DEFAULT 'RURAL',
         district TEXT NOT NULL,
         block TEXT NOT NULL,
         capacity_kld REAL DEFAULT 15.0,
@@ -242,12 +243,43 @@ export const initDatabase = async () => {
       );
     `);
 
-    // Ensure has_gps_device column exists if table was previously created
+    // Ensure has_gps_device, area_type, assigned_drivers_json columns exist in vehicles
     try {
       const columns = await dbAll("PRAGMA table_info(vehicles)");
-      const hasGpsCol = columns.some(c => c.name === 'has_gps_device');
-      if (!hasGpsCol) {
+      if (!columns.some(c => c.name === 'has_gps_device')) {
         await dbExec("ALTER TABLE vehicles ADD COLUMN has_gps_device INTEGER DEFAULT 1");
+      }
+      if (!columns.some(c => c.name === 'area_type')) {
+        await dbExec("ALTER TABLE vehicles ADD COLUMN area_type TEXT DEFAULT 'RURAL'");
+      }
+      if (!columns.some(c => c.name === 'assigned_drivers_json')) {
+        await dbExec("ALTER TABLE vehicles ADD COLUMN assigned_drivers_json TEXT DEFAULT '[]'");
+      }
+    } catch {
+      // Columns may already exist
+    }
+
+    // Ensure verification columns exist in fsm_requests
+    try {
+      const reqCols = await dbAll("PRAGMA table_info(fsm_requests)");
+      if (!reqCols.some(c => c.name === 'verification_code')) {
+        await dbExec("ALTER TABLE fsm_requests ADD COLUMN verification_code TEXT");
+      }
+      if (!reqCols.some(c => c.name === 'driver_acceptance_status')) {
+        await dbExec("ALTER TABLE fsm_requests ADD COLUMN driver_acceptance_status TEXT DEFAULT 'PENDING'");
+      }
+      if (!reqCols.some(c => c.name === 'disposal_qr_code')) {
+        await dbExec("ALTER TABLE fsm_requests ADD COLUMN disposal_qr_code TEXT");
+      }
+    } catch {
+      // Columns may already exist
+    }
+
+    // Ensure area_type exists in fstps
+    try {
+      const fstpCols = await dbAll("PRAGMA table_info(fstps)");
+      if (!fstpCols.some(c => c.name === 'area_type')) {
+        await dbExec("ALTER TABLE fstps ADD COLUMN area_type TEXT DEFAULT 'RURAL'");
       }
     } catch {
       // Column may already exist

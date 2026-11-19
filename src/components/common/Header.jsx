@@ -125,6 +125,17 @@ export const Header = () => {
               {t('nav_home')}
             </Link>
             <Link
+              to="/process"
+              className={`px-2.5 py-1.5 rounded-xl text-xs xl:text-sm font-semibold transition-colors whitespace-nowrap flex items-center gap-1 ${
+                location.pathname === '/process' || location.pathname === '/how-it-works'
+                  ? 'text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-500/15 font-bold'
+                  : 'text-slate-700 dark:text-slate-200 hover:text-teal-700 dark:hover:text-teal-300 hover:bg-slate-50 dark:hover:bg-white/5'
+              }`}
+            >
+              <Sparkles size={13} className="text-teal-600" />
+              <span>{lang === 'hi' ? 'प्रक्रिया प्रवाह' : 'Process Flow'}</span>
+            </Link>
+            <Link
               to="/about"
               className={`px-2.5 py-1.5 rounded-xl text-xs xl:text-sm font-semibold transition-colors whitespace-nowrap ${
                 location.pathname === '/about'
@@ -254,6 +265,14 @@ export const Header = () => {
             className="block px-3 py-2 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-teal-50 dark:hover:bg-teal-500/10"
           >
             {t('nav_home')}
+          </Link>
+          <Link
+            to="/process"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-xl text-sm font-semibold text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-500/10 flex items-center gap-1.5"
+          >
+            <Sparkles size={14} />
+            <span>{lang === 'hi' ? 'प्रक्रिया प्रवाह (Process)' : 'Process Flow'}</span>
           </Link>
           <Link
             to="/about"

@@ -237,7 +237,7 @@ export const Footer = () => {
       {/* Exact Copyright Line */}
       <div className="bg-slate-200/90 dark:bg-black/60 py-3 px-4 border-t border-slate-300/80 dark:border-white/5 text-center text-xs text-slate-700 dark:text-slate-400 transition-colors">
         <p className="font-medium tracking-tight text-slate-800 dark:text-slate-300">
-          © Copyright © United Nations Children's Fund (UNICEF) Chhattisgarh | Designed by Raj Yamgar @UNICEF 2026, India. All rights reserved.
+          Designed and developed by Raj Yamagar and supported by United Nations Children's Fund (UNICEF) Chhattisgarh
         </p>
       </div>
     </footer>

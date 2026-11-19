@@ -12,6 +12,7 @@ import { LandingPage } from './pages/public/LandingPage';
 import { AboutPage } from './pages/public/AboutPage';
 import { PublicDashboardPage } from './pages/public/PublicDashboardPage';
 import { CitizenBookingPage } from './pages/public/CitizenBookingPage';
+import { ProcessPage } from './pages/public/ProcessPage';
 import { LoginPage } from './pages/public/LoginPage';
 import { RegisterPage } from './pages/public/RegisterPage';
 
@@ -69,6 +70,8 @@ export const App = () => {
                   {/* Public Routes */}
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/about" element={<AboutPage />} />
+                  <Route path="/process" element={<ProcessPage />} />
+                  <Route path="/how-it-works" element={<ProcessPage />} />
                   <Route path="/dashboard" element={<PublicDashboardPage />} />
                   <Route path="/book" element={<CitizenBookingPage />} />
                   <Route path="/login" element={<LoginPage />} />

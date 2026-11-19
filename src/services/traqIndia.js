@@ -208,7 +208,9 @@ export const syncTraqIndiaDevicesToVehicles = async () => {
         updatedVehicles[existingIdx] = {
           ...updatedVehicles[existingIdx],
           ...vehicleData,
-          district: updatedVehicles[existingIdx].district || inferDistrictFromDeviceName(device.name)
+          district: updatedVehicles[existingIdx].district || inferDistrictFromDeviceName(device.name),
+          areaType: updatedVehicles[existingIdx].areaType || updatedVehicles[existingIdx].area_type || 'RURAL',
+          assignedDrivers: updatedVehicles[existingIdx].assignedDrivers || []
         };
       } else {
         // Add new vehicle detected from TraqIndia API
@@ -219,11 +221,13 @@ export const syncTraqIndiaDevicesToVehicles = async () => {
           regNo: device.name || `CG-TRQ-${deviceIdStr}`,
           type: isMini ? 'MINI_UNIT' : 'VACUUM_TRUCK',
           capacityLitres: isMini ? 1000 : (device.name?.includes('MUNGELI') ? 3000 : 4000),
+          areaType: 'RURAL',
           vendorId: 'ven_02',
           vendorName: 'Empaneled Sanitation Fleet',
           driverId: `drv_traq_${device.id}`,
           driverName: `Driver (${device.name || 'Unit ' + deviceIdStr})`,
           driverPhone: '9826100099',
+          assignedDrivers: [{ id: `drv_traq_${device.id}`, name: `Driver (${device.name || 'Unit ' + deviceIdStr})`, phone: '9826100099' }],
           status: device.speed > 0 ? 'TRANSPORTING' : 'AVAILABLE',
           pucExpiry: '2027-12-31',
           insuranceExpiry: '2027-12-31',

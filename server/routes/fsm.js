@@ -30,9 +30,12 @@ const formatRequestRow = (r) => {
     assignedDriverName: r.assigned_driver_name,
     assignedWorkerId: r.assigned_worker_id,
     assignedWorkerName: r.assigned_worker_name,
+    driverAcceptanceStatus: r.driver_acceptance_status || 'PENDING',
     targetFstpId: r.target_fstp_id,
     targetFstpName: r.target_fstp_name,
     decantedVolumeLitres: r.decanted_volume_litres,
+    verificationCode: r.verification_code || r.otp,
+    disposalQrCode: r.disposal_qr_code || (r.request_no ? `DISP-QR-${r.request_no.split('-').pop()}` : null),
     feedbackText: r.feedback_text,
     createdAt: r.created_at,
     updatedAt: r.updated_at
@@ -48,15 +51,28 @@ const formatVehicleRow = (v) => {
     (v.gpsDeviceId && (v.gpsDeviceId.startsWith('TRQ') || v.gpsDeviceId.includes('TRQ') || v.gpsDeviceId.startsWith('TRAQ')))
   );
 
+  let assignedDrivers = [];
+  try {
+    if (v.assigned_drivers_json) {
+      assignedDrivers = typeof v.assigned_drivers_json === 'string' ? JSON.parse(v.assigned_drivers_json) : v.assigned_drivers_json;
+    } else if (v.assignedDrivers) {
+      assignedDrivers = v.assignedDrivers;
+    }
+  } catch {
+    assignedDrivers = [];
+  }
+
   return {
     ...v,
     regNo: v.reg_no || v.regNo,
+    areaType: v.area_type || v.areaType || 'RURAL',
     capacityLitres: v.capacity_litres || v.capacityLitres,
     vendorId: v.vendor_id || v.vendorId,
     vendorName: v.vendor_name || v.vendorName,
     driverId: v.driver_id || v.driverId,
     driverName: v.driver_name || v.driverName,
     driverPhone: v.driver_phone || v.driverPhone,
+    assignedDrivers: assignedDrivers.length > 0 ? assignedDrivers : (v.driver_name ? [{ id: v.driver_id || 'drv_1', name: v.driver_name, phone: v.driver_phone || '' }] : []),
     gpsDeviceId: v.gps_device_id || v.gpsDeviceId,
     hasGpsDevice: isHardwareGps,
     gpsSource: isHardwareGps ? 'TRAQINDIA_HARDWARE' : 'MOBILE_APP',
@@ -67,6 +83,10 @@ const formatVehicleRow = (v) => {
     pucExpiry: v.puc_expiry || v.pucExpiry,
     insuranceExpiry: v.insurance_expiry || v.insuranceExpiry,
     fitnessExpiry: v.fitness_expiry || v.fitnessExpiry,
+    district: v.district,
+    block: v.block || '',
+    gp: v.gp || '',
+    village: v.village || '',
     assignedRequestId: v.assigned_request_id || v.assignedRequestId,
     lastUpdated: v.last_updated || v.lastUpdated
   };
@@ -76,6 +96,7 @@ const formatFstpRow = (f) => {
   if (!f) return null;
   return {
     ...f,
+    areaType: f.area_type || (f.type === 'URBAN_STP' ? 'URBAN' : 'RURAL'),
     capacityKLD: f.capacity_kld,
     currentVolumeKLD: f.current_volume_kld,
     radiusMeters: f.radius_meters,
@@ -237,6 +258,9 @@ router.put('/requests/:id', async (req, res) => {
         assigned_worker_name = COALESCE(?, assigned_worker_name),
         target_fstp_id = COALESCE(?, target_fstp_id),
         target_fstp_name = COALESCE(?, target_fstp_name),
+        driver_acceptance_status = COALESCE(?, driver_acceptance_status),
+        verification_code = COALESCE(?, verification_code),
+        disposal_qr_code = COALESCE(?, disposal_qr_code),
         payment_status = COALESCE(?, payment_status),
         decanted_volume_litres = COALESCE(?, decanted_volume_litres),
         rating = COALESCE(?, rating),
@@ -257,6 +281,9 @@ router.put('/requests/:id', async (req, res) => {
         body.assignedWorkerName || null,
         body.targetFstpId || null,
         body.targetFstpName || null,
+        body.driverAcceptanceStatus || null,
+        body.verificationCode || null,
+        body.disposalQrCode || null,
         body.paymentStatus || null,
         body.decantedVolumeLitres || null,
         body.rating || null,
@@ -297,19 +324,31 @@ router.post('/vehicles/bulk', async (req, res) => {
     for (const v of vehicles) {
       const id = v.id || `veh_${v.regNo || Date.now()}`;
       await dbRun(
-        `INSERT OR REPLACE INTO vehicles (
-          id, reg_no, type, capacity_litres, vendor_id, vendor_name, driver_name, driver_phone,
+        `INSERT INTO vehicles (
+          id, reg_no, type, capacity_litres, area_type, vendor_id, vendor_name, driver_name, driver_phone, assigned_drivers_json,
           gps_device_id, lat, lng, speed_kmh, heading_deg, status, puc_expiry, insurance_expiry, fitness_expiry, district, battery, has_gps_device, last_updated
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(id) DO UPDATE SET
+          lat = excluded.lat,
+          lng = excluded.lng,
+          speed_kmh = excluded.speed_kmh,
+          heading_deg = excluded.heading_deg,
+          status = COALESCE(vehicles.status, excluded.status),
+          area_type = COALESCE(vehicles.area_type, excluded.area_type),
+          assigned_drivers_json = COALESCE(vehicles.assigned_drivers_json, excluded.assigned_drivers_json),
+          driver_name = COALESCE(vehicles.driver_name, excluded.driver_name),
+          last_updated = CURRENT_TIMESTAMP`,
         [
           id,
           v.regNo || v.reg_no,
           v.type || 'VACUUM_TRUCK',
           v.capacityLitres || v.capacity_litres || 4000,
+          v.areaType || v.area_type || 'RURAL',
           v.vendorId || v.vendor_id || null,
           v.vendorName || v.vendor_name || 'Empaneled Sanitation Fleet',
           v.driverName || v.driver_name || 'Designated Driver',
           v.driverPhone || v.driver_phone || '9826100099',
+          v.assignedDrivers ? JSON.stringify(v.assignedDrivers) : (v.assigned_drivers_json || '[]'),
           v.gpsDeviceId || v.gps_device_id || '',
           v.currentLat !== undefined ? v.currentLat : (v.lat || 21.2385),
           v.currentLng !== undefined ? v.currentLng : (v.lng || 81.7120),
@@ -357,15 +396,50 @@ router.post('/vehicles', async (req, res) => {
   try {
     const v = req.body;
     const id = v.id || `veh_${Date.now()}`;
+    const assignedDriversJson = v.assignedDrivers ? JSON.stringify(v.assignedDrivers) : (v.driverName ? JSON.stringify([{ id: v.driverId || 'drv_1', name: v.driverName, phone: v.driverPhone || '' }]) : '[]');
+    const primaryDriverName = v.driverName || (v.assignedDrivers?.[0]?.name) || '';
+    const primaryDriverPhone = v.driverPhone || (v.assignedDrivers?.[0]?.phone) || '';
+    const primaryDriverId = v.driverId || (v.assignedDrivers?.[0]?.id) || '';
+
     await dbRun(
-      `INSERT INTO vehicles (id, reg_no, type, capacity_litres, vendor_id, vendor_name, driver_name, driver_phone, gps_device_id, lat, lng, status, puc_expiry, insurance_expiry, fitness_expiry, district, battery)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, v.regNo, v.type || 'VACUUM_TRUCK', v.capacityLitres || 4000, v.vendorId || null, v.vendorName || '', v.driverName || '', v.driverPhone || '', v.gpsDeviceId || '', v.currentLat || 21.2385, v.currentLng || 81.7120, v.status || 'AVAILABLE', v.pucExpiry || '', v.insuranceExpiry || '', v.fitnessExpiry || '', v.district || 'Raipur (378)', 95]
+      `INSERT INTO vehicles (
+        id, reg_no, type, capacity_litres, area_type, vendor_id, vendor_name,
+        driver_id, driver_name, driver_phone, assigned_drivers_json,
+        gps_device_id, has_gps_device, lat, lng, status,
+        puc_expiry, insurance_expiry, fitness_expiry, district, block, gp, village, battery
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        v.regNo,
+        v.type || 'VACUUM_TRUCK',
+        v.capacityLitres || 4000,
+        v.areaType || 'RURAL',
+        v.vendorId || null,
+        v.vendorName || '',
+        primaryDriverId,
+        primaryDriverName,
+        primaryDriverPhone,
+        assignedDriversJson,
+        v.gpsDeviceId || '',
+        v.hasGpsDevice ? 1 : 0,
+        v.currentLat || 21.2385,
+        v.currentLng || 81.7120,
+        v.status || 'AVAILABLE',
+        v.pucExpiry || '',
+        v.insuranceExpiry || '',
+        v.fitnessExpiry || '',
+        v.district || 'Raipur (378)',
+        v.block || '',
+        v.gp || '',
+        v.village || '',
+        95
+      ]
     );
     const created = await dbGet('SELECT * FROM vehicles WHERE id = ?', [id]);
     res.status(201).json({ success: true, vehicle: formatVehicleRow(created) });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to create vehicle.' });
+    console.error('Create vehicle error:', err);
+    res.status(500).json({ success: false, message: 'Failed to create vehicle: ' + err.message });
   }
 });
 
@@ -373,23 +447,161 @@ router.put('/vehicles/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const v = req.body;
+    const existing = await dbGet('SELECT * FROM vehicles WHERE id = ?', [id]);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    }
+
+    let assignedDriversJson = existing.assigned_drivers_json;
+    if (v.assignedDrivers !== undefined) {
+      assignedDriversJson = JSON.stringify(v.assignedDrivers);
+    }
+
+    const primaryDriverName = v.driverName !== undefined ? v.driverName : (v.assignedDrivers?.[0]?.name ?? existing.driver_name);
+    const primaryDriverPhone = v.driverPhone !== undefined ? v.driverPhone : (v.assignedDrivers?.[0]?.phone ?? existing.driver_phone);
+    const primaryDriverId = v.driverId !== undefined ? v.driverId : (v.assignedDrivers?.[0]?.id ?? existing.driver_id);
+
     await dbRun(
       `UPDATE vehicles SET
+        reg_no = COALESCE(?, reg_no),
+        type = COALESCE(?, type),
+        capacity_litres = COALESCE(?, capacity_litres),
+        area_type = COALESCE(?, area_type),
+        vendor_name = COALESCE(?, vendor_name),
         status = COALESCE(?, status),
         lat = COALESCE(?, lat),
         lng = COALESCE(?, lng),
         speed_kmh = COALESCE(?, speed_kmh),
         assigned_request_id = ?,
+        driver_id = COALESCE(?, driver_id),
         driver_name = COALESCE(?, driver_name),
         driver_phone = COALESCE(?, driver_phone),
+        assigned_drivers_json = COALESCE(?, assigned_drivers_json),
+        gps_device_id = COALESCE(?, gps_device_id),
+        district = COALESCE(?, district),
+        block = COALESCE(?, block),
+        gp = COALESCE(?, gp),
+        village = COALESCE(?, village),
+        puc_expiry = COALESCE(?, puc_expiry),
+        insurance_expiry = COALESCE(?, insurance_expiry),
+        fitness_expiry = COALESCE(?, fitness_expiry),
         last_updated = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [v.status || null, v.currentLat || null, v.currentLng || null, v.speedKmh !== undefined ? v.speedKmh : null, v.assignedRequestId !== undefined ? v.assignedRequestId : null, v.driverName || null, v.driverPhone || null, id]
+      [
+        v.regNo || null,
+        v.type || null,
+        v.capacityLitres || null,
+        v.areaType || null,
+        v.vendorName || null,
+        v.status || null,
+        v.currentLat || null,
+        v.currentLng || null,
+        v.speedKmh !== undefined ? v.speedKmh : null,
+        v.assignedRequestId !== undefined ? v.assignedRequestId : existing.assigned_request_id,
+        primaryDriverId || null,
+        primaryDriverName || null,
+        primaryDriverPhone || null,
+        assignedDriversJson || null,
+        v.gpsDeviceId !== undefined ? v.gpsDeviceId : null,
+        v.district || null,
+        v.block || null,
+        v.gp || null,
+        v.village || null,
+        v.pucExpiry || null,
+        v.insuranceExpiry || null,
+        v.fitnessExpiry || null,
+        id
+      ]
     );
     const updated = await dbGet('SELECT * FROM vehicles WHERE id = ?', [id]);
     res.json({ success: true, vehicle: formatVehicleRow(updated) });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to update vehicle.' });
+    console.error('Update vehicle error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update vehicle: ' + err.message });
+  }
+});
+
+router.delete('/vehicles/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await dbGet('SELECT * FROM vehicles WHERE id = ?', [id]);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    }
+
+    await dbRun('DELETE FROM vehicles WHERE id = ?', [id]);
+    await dbRun(
+      `INSERT INTO audit_logs (entity_id, entity_type, action, actor_name, actor_role, details)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, 'VEHICLE', 'DELETE_VEHICLE', 'Official', 'ADMIN', `Deleted vehicle ${existing.reg_no}`]
+    );
+
+    res.json({ success: true, message: `Vehicle ${existing.reg_no} deleted successfully` });
+  } catch (err) {
+    console.error('Delete vehicle error:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete vehicle' });
+  }
+});
+
+// ----------------------------------------------------
+// 2.1 DRIVERS API (Fetch certified drivers by district or statewide)
+// ----------------------------------------------------
+router.get('/drivers', async (req, res) => {
+  try {
+    const { district } = req.query;
+    let query = "SELECT id, name, phone, email, role, designation, district, block, gp, village FROM users WHERE role = 'DRIVER'";
+    const params = [];
+    if (district && district !== 'ALL') {
+      query += ' AND district LIKE ?';
+      params.push(`%${district}%`);
+    }
+    query += ' ORDER BY name ASC';
+    const rows = await dbAll(query, params);
+    res.json({ success: true, drivers: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch drivers: ' + err.message });
+  }
+});
+
+router.post('/drivers', async (req, res) => {
+  try {
+    const {
+      name,
+      phone,
+      email,
+      district,
+      block,
+      gp,
+      village,
+      licenseNo,
+      designation
+    } = req.body;
+
+    if (!name || !phone) {
+      return res.status(400).json({ success: false, message: 'Name and Phone are mandatory' });
+    }
+
+    // Check duplicate phone
+    const existing = await dbGet('SELECT id FROM users WHERE phone = ?', [phone]);
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'Driver with this mobile number already exists' });
+    }
+
+    const id = `usr_drv_${Date.now()}`;
+    const defaultHash = '$2a$10$wT0lVl8dF8FjG6/5yKx/u.x1qg4wQfP4S4WqGv0e6K0X6g7j8m0kS'; // standard salt hash for Driver@2026
+    const title = designation || (licenseNo ? `Vacuum Tanker Pilot (DL: ${licenseNo})` : 'Vacuum Tanker Pilot');
+
+    await dbRun(
+      `INSERT INTO users (id, name, email, phone, password_hash, role, designation, district, block, gp, village)
+       VALUES (?, ?, ?, ?, ?, 'DRIVER', ?, ?, ?, ?, ?)`,
+      [id, name.trim(), email || null, phone.trim(), defaultHash, title, district || 'Raipur (378)', block || '', gp || '', village || '']
+    );
+
+    const created = await dbGet('SELECT id, name, phone, email, role, designation, district, block, gp, village FROM users WHERE id = ?', [id]);
+    res.status(201).json({ success: true, driver: created });
+  } catch (err) {
+    console.error('Create driver error:', err);
+    res.status(500).json({ success: false, message: 'Failed to register driver: ' + err.message });
   }
 });
 
@@ -409,15 +621,43 @@ router.post('/fstps', async (req, res) => {
   try {
     const f = req.body;
     const id = f.id || `fstp_${Date.now()}`;
+    const areaType = f.areaType || f.area_type || (f.type === 'URBAN_STP' ? 'URBAN' : 'RURAL');
     await dbRun(
-      `INSERT INTO fstps (id, name, type, district, block, capacity_kld, current_volume_kld, status, lat, lng, radius_meters, operator_name, operator_phone, compost_stock_tons, treated_water_stock_kl, connected_gps_count)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, f.name, f.type || 'FSTP', f.district, f.block, f.capacityKLD || 15, f.currentVolumeKLD || 0, f.status || 'OPERATIONAL', f.lat || 21.195, f.lng || 81.968, f.radiusMeters || 300, f.operatorName || '', f.operatorPhone || '', f.compostStockTons || 0, f.treatedWaterStockKL || 0, f.connectedGPsCount || 0]
+      `INSERT INTO fstps (
+        id, name, type, area_type, district, block, capacity_kld, current_volume_kld,
+        status, lat, lng, radius_meters, operator_name, operator_phone,
+        compost_stock_tons, treated_water_stock_kl, connected_gps_count
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        f.name,
+        f.type || 'FSTP',
+        areaType,
+        f.district,
+        f.block,
+        f.capacityKLD !== undefined ? Number(f.capacityKLD) : 15,
+        f.currentVolumeKLD !== undefined ? Number(f.currentVolumeKLD) : 0,
+        f.status || 'OPERATIONAL',
+        f.lat !== undefined ? Number(f.lat) : 21.195,
+        f.lng !== undefined ? Number(f.lng) : 81.968,
+        f.radiusMeters !== undefined ? Number(f.radiusMeters) : 300,
+        f.operatorName || '',
+        f.operatorPhone || '',
+        f.compostStockTons !== undefined ? Number(f.compostStockTons) : 0,
+        f.treatedWaterStockKL !== undefined ? Number(f.treatedWaterStockKL) : 0,
+        f.connectedGPsCount !== undefined ? Number(f.connectedGPsCount) : 0
+      ]
     );
     const created = await dbGet('SELECT * FROM fstps WHERE id = ?', [id]);
+    await dbRun(
+      `INSERT INTO audit_logs (entity_id, entity_type, action, actor_name, actor_role, details)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, 'FSTP', 'CREATE_FSTP', 'Official', 'OFFICER', `Created treatment plant ${f.name} (${areaType})`]
+    );
     res.status(201).json({ success: true, fstp: formatFstpRow(created) });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to create FSTP.' });
+    console.error('Create FSTP error:', err);
+    res.status(500).json({ success: false, message: 'Failed to create FSTP: ' + err.message });
   }
 });
 
@@ -425,19 +665,84 @@ router.put('/fstps/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const f = req.body;
+    const existing = await dbGet('SELECT * FROM fstps WHERE id = ?', [id]);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Treatment facility not found' });
+    }
+
+    const areaType = f.areaType || f.area_type || (f.type === 'URBAN_STP' ? 'URBAN' : (existing.area_type || 'RURAL'));
+
     await dbRun(
       `UPDATE fstps SET
+        name = COALESCE(?, name),
+        type = COALESCE(?, type),
+        area_type = COALESCE(?, area_type),
+        district = COALESCE(?, district),
+        block = COALESCE(?, block),
+        capacity_kld = COALESCE(?, capacity_kld),
         current_volume_kld = COALESCE(?, current_volume_kld),
         status = COALESCE(?, status),
+        lat = COALESCE(?, lat),
+        lng = COALESCE(?, lng),
+        radius_meters = COALESCE(?, radius_meters),
+        operator_name = COALESCE(?, operator_name),
+        operator_phone = COALESCE(?, operator_phone),
         compost_stock_tons = COALESCE(?, compost_stock_tons),
-        treated_water_stock_kl = COALESCE(?, treated_water_stock_kl)
+        treated_water_stock_kl = COALESCE(?, treated_water_stock_kl),
+        connected_gps_count = COALESCE(?, connected_gps_count)
        WHERE id = ?`,
-      [f.currentVolumeKLD !== undefined ? f.currentVolumeKLD : null, f.status || null, f.compostStockTons !== undefined ? f.compostStockTons : null, f.treatedWaterStockKL !== undefined ? f.treatedWaterStockKL : null, id]
+      [
+        f.name || null,
+        f.type || null,
+        areaType || null,
+        f.district || null,
+        f.block || null,
+        f.capacityKLD !== undefined ? Number(f.capacityKLD) : null,
+        f.currentVolumeKLD !== undefined ? Number(f.currentVolumeKLD) : null,
+        f.status || null,
+        f.lat !== undefined ? Number(f.lat) : null,
+        f.lng !== undefined ? Number(f.lng) : null,
+        f.radiusMeters !== undefined ? Number(f.radiusMeters) : null,
+        f.operatorName || null,
+        f.operatorPhone || null,
+        f.compostStockTons !== undefined ? Number(f.compostStockTons) : null,
+        f.treatedWaterStockKL !== undefined ? Number(f.treatedWaterStockKL) : null,
+        f.connectedGPsCount !== undefined ? Number(f.connectedGPsCount) : null,
+        id
+      ]
     );
     const updated = await dbGet('SELECT * FROM fstps WHERE id = ?', [id]);
+    await dbRun(
+      `INSERT INTO audit_logs (entity_id, entity_type, action, actor_name, actor_role, details)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, 'FSTP', 'UPDATE_FSTP', 'Official', 'OFFICER', `Updated treatment plant ${updated.name}`]
+    );
     res.json({ success: true, fstp: formatFstpRow(updated) });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to update FSTP.' });
+    console.error('Update FSTP error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update FSTP: ' + err.message });
+  }
+});
+
+router.delete('/fstps/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await dbGet('SELECT * FROM fstps WHERE id = ?', [id]);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Treatment facility not found' });
+    }
+
+    await dbRun('DELETE FROM fstps WHERE id = ?', [id]);
+    await dbRun(
+      `INSERT INTO audit_logs (entity_id, entity_type, action, actor_name, actor_role, details)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, 'FSTP', 'DELETE_FSTP', 'Official', 'ADMIN', `Decommissioned treatment plant ${existing.name} (${existing.id})`]
+    );
+
+    res.json({ success: true, message: `Treatment plant ${existing.name} decommissioned successfully` });
+  } catch (err) {
+    console.error('Delete FSTP error:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete treatment plant' });
   }
 });
 

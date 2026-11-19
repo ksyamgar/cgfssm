@@ -859,6 +859,17 @@ export const CitizenBookingPage = () => {
               <div>DATE: <strong className="text-slate-900 dark:text-white">{createdRequestResult.scheduledDate}</strong></div>
               <div>ESTIMATED TARIFF: <strong className="text-teal-700 dark:text-teal-400">₹{createdRequestResult.estimatedCost}</strong></div>
               <div>PAYMENT: <span className="text-sky-700 dark:text-sky-300 font-semibold">{createdRequestResult.paymentMethod}</span></div>
+              
+              {/* Right-House Security Verification Code & QR Badge */}
+              <div className="pt-2.5 mt-2 border-t border-slate-200 dark:border-white/10 flex items-center justify-between bg-emerald-50/70 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-300 dark:border-emerald-500/30">
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-300">HOUSEHOLD VERIFICATION CODE</div>
+                  <div className="text-[10px] text-slate-500">Share with driver upon vehicle arrival to verify right house</div>
+                </div>
+                <div className="text-base font-bold text-emerald-700 dark:text-emerald-400 font-mono tracking-wider bg-white dark:bg-slate-900 px-3 py-1 rounded-lg border border-emerald-200 dark:border-emerald-600/40 shadow-sm">
+                  {createdRequestResult.verificationCode || createdRequestResult.otp || '938102'}
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">

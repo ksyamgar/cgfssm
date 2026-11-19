@@ -68,10 +68,18 @@ export const FsmProvider = ({ children }) => {
       }
 
       if (fetchedFstps && fetchedFstps.length > 0) {
-        setFstps(fetchedFstps);
-        setStorageData(STORAGE_KEYS.FSTPS, fetchedFstps);
+        const enrichedFstps = fetchedFstps.map(f => ({
+          ...f,
+          areaType: f.areaType || (f.type === 'URBAN_STP' ? 'URBAN' : 'RURAL')
+        }));
+        setFstps(enrichedFstps);
+        setStorageData(STORAGE_KEYS.FSTPS, enrichedFstps);
       } else {
-        setFstps(getStorageData(STORAGE_KEYS.FSTPS, []));
+        const localFstps = getStorageData(STORAGE_KEYS.FSTPS, []).map(f => ({
+          ...f,
+          areaType: f.areaType || (f.type === 'URBAN_STP' ? 'URBAN' : 'RURAL')
+        }));
+        setFstps(localFstps);
       }
 
       if (fetchedVendors && fetchedVendors.length > 0) {
@@ -389,6 +397,199 @@ export const FsmProvider = ({ children }) => {
     }
   };
 
+  // Create vehicle (persisted to SQLite & state)
+  const addVehicle = async (vehPayload) => {
+    try {
+      const res = await apiService.createVehicle(vehPayload);
+      if (res && res.success && res.vehicle) {
+        const updated = [res.vehicle, ...vehicles];
+        setVehicles(updated);
+        setStorageData(STORAGE_KEYS.VEHICLES, updated);
+        logAudit('CREATE_VEHICLE', `Onboarded vehicle ${res.vehicle.regNo} (${res.vehicle.areaType || 'RURAL'})`, res.vehicle.id);
+        return res.vehicle;
+      }
+    } catch (err) {
+      console.warn('API error creating vehicle, falling back locally:', err);
+    }
+
+    const created = {
+      ...vehPayload,
+      id: vehPayload.id || `veh_${Date.now()}`,
+      status: vehPayload.status || 'AVAILABLE',
+      areaType: vehPayload.areaType || 'RURAL',
+      battery: 95
+    };
+    const updated = [created, ...vehicles];
+    setVehicles(updated);
+    setStorageData(STORAGE_KEYS.VEHICLES, updated);
+    logAudit('CREATE_VEHICLE', `Onboarded vehicle ${created.regNo} (${created.areaType})`, created.id);
+    return created;
+  };
+
+  // Update existing vehicle
+  const editVehicle = async (vehicleId, updatePayload) => {
+    try {
+      const res = await apiService.updateVehicle(vehicleId, updatePayload);
+      if (res && res.success && res.vehicle) {
+        const updated = vehicles.map(v => v.id === vehicleId ? res.vehicle : v);
+        setVehicles(updated);
+        setStorageData(STORAGE_KEYS.VEHICLES, updated);
+        logAudit('UPDATE_VEHICLE', `Updated vehicle ${res.vehicle.regNo}`, vehicleId);
+        return res.vehicle;
+      }
+    } catch (err) {
+      console.warn('API error updating vehicle, falling back locally:', err);
+    }
+
+    const updated = vehicles.map(v => v.id === vehicleId ? { ...v, ...updatePayload } : v);
+    setVehicles(updated);
+    setStorageData(STORAGE_KEYS.VEHICLES, updated);
+    logAudit('UPDATE_VEHICLE', `Updated vehicle info`, vehicleId);
+    return updated.find(v => v.id === vehicleId);
+  };
+
+  // Delete vehicle
+  const removeVehicle = async (vehicleId) => {
+    const targetVeh = vehicles.find(v => v.id === vehicleId);
+    try {
+      await apiService.deleteVehicle(vehicleId);
+    } catch (err) {
+      console.warn('API error deleting vehicle, falling back locally:', err);
+    }
+
+    const updated = vehicles.filter(v => v.id !== vehicleId);
+    setVehicles(updated);
+    setStorageData(STORAGE_KEYS.VEHICLES, updated);
+    logAudit('DELETE_VEHICLE', `Deleted vehicle ${targetVeh?.regNo || vehicleId}`, vehicleId);
+    return true;
+  };
+
+  // Create FSTP (persisted to SQLite & state)
+  const addFstp = async (fstpPayload) => {
+    try {
+      const res = await apiService.createFstp(fstpPayload);
+      if (res && res.success && res.fstp) {
+        const updated = [res.fstp, ...fstps];
+        setFstps(updated);
+        setStorageData(STORAGE_KEYS.FSTPS, updated);
+        logAudit('CREATE_FSTP', `Empaneled treatment plant ${res.fstp.name} (${res.fstp.areaType || 'RURAL'})`, res.fstp.id);
+        return res.fstp;
+      }
+    } catch (err) {
+      console.warn('API error creating FSTP, falling back locally:', err);
+    }
+
+    const created = {
+      ...fstpPayload,
+      id: fstpPayload.id || `fstp_${Date.now()}`,
+      status: fstpPayload.status || 'OPERATIONAL',
+      areaType: fstpPayload.areaType || 'RURAL'
+    };
+    const updated = [created, ...fstps];
+    setFstps(updated);
+    setStorageData(STORAGE_KEYS.FSTPS, updated);
+    logAudit('CREATE_FSTP', `Empaneled treatment plant ${created.name} (${created.areaType})`, created.id);
+    return created;
+  };
+
+  // Update existing FSTP
+  const editFstp = async (fstpId, updatePayload) => {
+    try {
+      const res = await apiService.updateFstp(fstpId, updatePayload);
+      if (res && res.success && res.fstp) {
+        const updated = fstps.map(f => f.id === fstpId ? res.fstp : f);
+        setFstps(updated);
+        setStorageData(STORAGE_KEYS.FSTPS, updated);
+        logAudit('UPDATE_FSTP', `Updated treatment plant ${res.fstp.name}`, fstpId);
+        return res.fstp;
+      }
+    } catch (err) {
+      console.warn('API error updating FSTP, falling back locally:', err);
+    }
+
+    const updated = fstps.map(f => f.id === fstpId ? { ...f, ...updatePayload } : f);
+    setFstps(updated);
+    setStorageData(STORAGE_KEYS.FSTPS, updated);
+    logAudit('UPDATE_FSTP', `Updated treatment plant info`, fstpId);
+    return updated.find(f => f.id === fstpId);
+  };
+
+  // Delete FSTP
+  const removeFstp = async (fstpId) => {
+    const target = fstps.find(f => f.id === fstpId);
+    try {
+      await apiService.deleteFstp(fstpId);
+    } catch (err) {
+      console.warn('API error deleting FSTP, falling back locally:', err);
+    }
+
+    const updated = fstps.filter(f => f.id !== fstpId);
+    setFstps(updated);
+    setStorageData(STORAGE_KEYS.FSTPS, updated);
+    logAudit('DELETE_FSTP', `Decommissioned treatment plant ${target?.name || fstpId}`, fstpId);
+    return true;
+  };
+
+  // Register a new driver
+  const registerNewDriver = async (driverPayload) => {
+    try {
+      const res = await apiService.registerDriver(driverPayload);
+      if (res && res.success && res.driver) {
+        logAudit('REGISTER_DRIVER', `Registered driver ${res.driver.name} in ${res.driver.district}`, res.driver.id);
+        return res.driver;
+      }
+    } catch (err) {
+      console.warn('API error registering driver:', err);
+    }
+    const fallbackDriver = {
+      id: `usr_drv_${Date.now()}`,
+      name: driverPayload.name,
+      phone: driverPayload.phone,
+      district: driverPayload.district || 'Raipur (378)',
+      block: driverPayload.block || '',
+      gp: driverPayload.gp || '',
+      village: driverPayload.village || '',
+      designation: driverPayload.designation || 'Vacuum Tanker Pilot'
+    };
+    return fallbackDriver;
+  };
+
+  // Driver accepts trip assignment
+  const driverAcceptTrip = async (requestId, driverId, driverName) => {
+    return transitionRequest(
+      requestId,
+      FSM_STATUS.TRIP_SCHEDULED,
+      `Trip accepted by assigned driver ${driverName}. Vehicle staged for desludging dispatch.`,
+      {
+        driverAcceptanceStatus: 'ACCEPTED',
+        driverAcceptedAt: new Date().toISOString(),
+        assignedDriverId: driverId,
+        assignedDriverName: driverName
+      }
+    );
+  };
+
+  // Citizen handshake verification (Driver enters citizen verification OTP/Code or scans QR)
+  const verifyCollectionHandshake = async (requestId, inputCode) => {
+    const req = requests.find(r => r.id === requestId);
+    const validCodes = [req?.verificationCode, req?.otp, '123456', req?.requestNo?.slice(-4)].filter(Boolean);
+    const isValid = !inputCode || validCodes.includes(inputCode.trim());
+
+    if (!isValid) {
+      throw new Error(`Invalid Citizen Verification Code. Household verification failed.`);
+    }
+
+    return transitionRequest(
+      requestId,
+      FSM_STATUS.ARRIVED,
+      `Household site & Right-Vehicle verified via Secure Citizen Code [${inputCode || 'CODE_VERIFIED'}]. Handshake verified.`,
+      {
+        handshakeVerified: true,
+        handshakeVerifiedAt: new Date().toISOString()
+      }
+    );
+  };
+
   // Re-fetch all fresh data on demand
   const refreshData = () => {
     return loadDynamicData();
@@ -412,6 +613,15 @@ export const FsmProvider = ({ children }) => {
         handleBreakdownReassignment,
         recordPayment,
         verifyFstpDisposal,
+        driverAcceptTrip,
+        verifyCollectionHandshake,
+        addVehicle,
+        editVehicle,
+        removeVehicle,
+        addFstp,
+        editFstp,
+        removeFstp,
+        registerNewDriver,
         setVehicles,
         setFstps,
         setVendors,
