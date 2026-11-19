@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import { useFsm } from '../../context/FsmContext';
+import { useGeoScope } from '../../context/GeoScopeContext';
+import { ALL_33_DISTRICTS, DEFAULT_GLOBAL_TARIFF } from '../../services/storageService';
+import { getBlocks, getGramPanchayats } from '../../services/locationService';
+import { exportToPdf } from '../../services/exportService';
+import { notifySuccess } from '../../services/toastService';
 import { Header } from '../../components/common/Header';
 import { Footer } from '../../components/common/Footer';
 import {
@@ -42,8 +47,10 @@ import {
 } from 'lucide-react';
 
 export const LandingPage = () => {
+  const navigate = useNavigate();
   const { t } = useLanguage();
-  const { requests, vehicles, fstps } = useFsm();
+  const { requests, vehicles, fstps, tariffs, getDistrictTariff } = useFsm();
+  const { districts: geoDistricts, hierarchyData } = useGeoScope();
 
   // ----------------------------------------------------
   // 1. INTERACTIVE 5-STAGE FSSM CHAIN SIMULATOR DATA
@@ -351,50 +358,140 @@ export const LandingPage = () => {
   };
 
   // ----------------------------------------------------
-  // 3. DYNAMIC TARIFF CALCULATOR STATE & LOGIC
+  // 3. DYNAMIC TARIFF CALCULATOR STATE & LOGIC (SYNCED WITH GEOGRAPHIC HIERARCHY)
   // ----------------------------------------------------
-  const [calcDistrict, setCalcDistrict] = useState('durg');
-  const [calcBlock, setCalcBlock] = useState('patan');
-  const [calcGp, setCalcGp] = useState('jamgaon-r');
-  const [calcTankSize, setCalcTankSize] = useState('single');
-  const [calcAccess, setCalcAccess] = useState('wide');
-  const [calcCategory, setCalcCategory] = useState('bpl');
+  const allDistricts = useMemo(() => {
+    return (geoDistricts && geoDistricts.length > 0) ? geoDistricts : ALL_33_DISTRICTS;
+  }, [geoDistricts]);
 
-  const gpDistances = {
-    'jamgaon-r': 8.4,
-    'selud': 13.2,
-    'batang': 17.5,
-    'kurud': 6.0
-  };
+  const [calcDistrict, setCalcDistrict] = useState('Raipur (387)');
+  const [calcBlock, setCalcBlock] = useState('Dharsiwa (3836)');
+  const [calcGp, setCalcGp] = useState('Mandir Hasaud (124805)');
+  const [calcTankSize, setCalcTankSize] = useState('2500'); // '1500', '2500', '3500', '5000'
+  const [calcAccess, setCalcAccess] = useState('wide'); // 'wide', 'narrow'
+  const [calcCategory, setCalcCategory] = useState('bpl'); // 'bpl', 'general', 'panchayat-building'
+  const [calcDistanceKm, setCalcDistanceKm] = useState(12);
+  const [calcEmergency, setCalcEmergency] = useState(false);
 
-  const calculateTariff = () => {
-    const baseFee = 1200;
-    let capacitySurcharge = 0;
-    if (calcTankSize === 'medium') capacitySurcharge = 200;
-    if (calcTankSize === 'commercial') capacitySurcharge = 500;
+  // Available blocks in selected district
+  const availableBlocks = useMemo(() => {
+    if (!calcDistrict) return [];
+    if (hierarchyData && hierarchyData[calcDistrict]) {
+      return Object.keys(hierarchyData[calcDistrict]).sort();
+    }
+    return getBlocks(hierarchyData, calcDistrict);
+  }, [hierarchyData, calcDistrict]);
 
-    let accessSurcharge = calcAccess === 'narrow' ? 150 : 0;
-    const distanceKm = gpDistances[calcGp] || 8.4;
-    const distanceSurcharge = distanceKm > 15 ? 150 : 0;
+  // Available GPs in selected district & block
+  const availableGps = useMemo(() => {
+    if (!calcDistrict || !calcBlock) return [];
+    if (hierarchyData && hierarchyData[calcDistrict]?.[calcBlock]) {
+      return Object.keys(hierarchyData[calcDistrict][calcBlock]).sort();
+    }
+    return getGramPanchayats(hierarchyData, calcDistrict, calcBlock);
+  }, [hierarchyData, calcDistrict, calcBlock]);
 
+  // Auto-sync block when district changes
+  useEffect(() => {
+    if (availableBlocks.length > 0 && !availableBlocks.includes(calcBlock)) {
+      setCalcBlock(availableBlocks[0]);
+    }
+  }, [availableBlocks, calcBlock]);
+
+  // Auto-sync GP when block changes
+  useEffect(() => {
+    if (availableGps.length > 0 && !availableGps.includes(calcGp)) {
+      setCalcGp(availableGps[0]);
+    }
+  }, [availableGps, calcGp]);
+
+  // Dynamic bill computation using live district tariffs
+  const bill = useMemo(() => {
+    const activeTariff = getDistrictTariff ? getDistrictTariff(calcDistrict) : DEFAULT_GLOBAL_TARIFF;
+    const baseFee = activeTariff?.basePriceINR ?? 800;
+    const baseDistanceKm = activeTariff?.baseDistanceKm ?? 5;
+    const ratePerKm = activeTariff?.ratePerAdditionalKmINR ?? 25;
+    const gpCess = activeTariff?.gpAdministrativeFeeINR ?? 100;
+    const emergencyMultiplier = activeTariff?.emergencyMultiplier ?? 1.25;
+
+    // Tank capacity multiplier
+    const tankMultiplier =
+      activeTariff?.tankSizeMultipliers?.[calcTankSize] ??
+      (calcTankSize === '1500' ? 1.0 : calcTankSize === '2500' ? 1.2 : calcTankSize === '3500' ? 1.4 : 1.8);
+
+    const capacitySurcharge = Math.round(baseFee * (tankMultiplier - 1.0));
+
+    // Distance haul surcharge beyond base perimeter
+    const distanceKm = Number(calcDistanceKm) || 12;
+    const extraKm = Math.max(0, distanceKm - baseDistanceKm);
+    const distanceSurcharge = Math.round(extraKm * ratePerKm);
+
+    // Narrow alley surcharge
+    const accessSurcharge = calcAccess === 'narrow' ? 150 : 0;
+
+    // SBM-G Rural Subsidy
     let subsidy = 0;
     if (calcCategory === 'bpl') subsidy = 400;
     if (calcCategory === 'panchayat-building') subsidy = 600;
 
-    const netTotal = Math.max(0, baseFee + capacitySurcharge + accessSurcharge + distanceSurcharge - subsidy);
+    // Subtotal before emergency
+    const subtotal = baseFee + capacitySurcharge + distanceSurcharge + accessSurcharge + gpCess;
+
+    // Emergency surge
+    const emergencySurcharge = calcEmergency ? Math.round(subtotal * (emergencyMultiplier - 1.0)) : 0;
+
+    // Net payable
+    const netTotal = Math.max(0, subtotal + emergencySurcharge - subsidy);
 
     return {
+      activeTariff,
       baseFee,
+      baseDistanceKm,
+      ratePerKm,
+      gpCess,
+      tankMultiplier,
       capacitySurcharge,
-      accessSurcharge,
       distanceKm,
+      extraKm,
       distanceSurcharge,
+      accessSurcharge,
+      emergencySurcharge,
+      emergencyMultiplier,
       subsidy,
+      subtotal,
       netTotal
     };
-  };
+  }, [getDistrictTariff, calcDistrict, calcTankSize, calcAccess, calcCategory, calcDistanceKm, calcEmergency]);
 
-  const bill = calculateTariff();
+  // Download official gazette schedule PDF for current district
+  const handleDownloadGazette = (e) => {
+    e.preventDefault();
+    try {
+      exportToPdf({
+        title: `GOVERNMENT NOTIFIED TARIFF GAZETTE — ${calcDistrict.toUpperCase()}`,
+        subtitle: `Issued under SBM-G Notification No. CG-SBMG-2024-T09 for ${calcBlock || 'All Janpad Blocks'} / ${calcGp || 'Gram Panchayats'}`,
+        columns: [
+          { header: 'Component Parameter', key: 'param' },
+          { header: 'Official Standard Rate', key: 'rate' },
+          { header: 'Unit / Scope', key: 'unit' },
+          { header: 'Remarks / Subsidy Provision', key: 'remarks' }
+        ],
+        rows: [
+          { param: 'Base Evacuation Fee', rate: `₹${bill.baseFee}.00`, unit: `First ${bill.baseDistanceKm} km included`, remarks: 'Fixed statutory government ceiling' },
+          { param: 'Tank Volume Surcharge', rate: `+₹${bill.capacitySurcharge}.00`, unit: `${calcTankSize} Litres Capacity`, remarks: `${bill.tankMultiplier}x Volume Multiplier applied` },
+          { param: 'Distance Haulage Fee', rate: bill.distanceSurcharge > 0 ? `+₹${bill.distanceSurcharge}.00` : '₹0.00 (Free)', unit: `${bill.distanceKm} km from Treatment Plant`, remarks: `₹${bill.ratePerKm}/km beyond ${bill.baseDistanceKm} km perimeter` },
+          { param: 'Gram Panchayat Sanitation Cess', rate: `₹${bill.gpCess}.00`, unit: 'Per Desludging Mission', remarks: 'Directly credited to Village Panchayat Swachhata Fund' },
+          { param: 'Narrow Access Unit Fee', rate: `₹${bill.accessSurcharge}.00`, unit: calcAccess === 'narrow' ? 'Mini-Tractor Unit' : 'Standard Vacuum Tanker', remarks: calcAccess === 'narrow' ? 'Narrow alley mobilization' : 'Standard road clearance' },
+          { param: 'SBM-G Rural Subsidy', rate: `-₹${bill.subsidy}.00`, unit: calcCategory.toUpperCase(), remarks: calcCategory === 'bpl' ? 'Antyodaya & BPL DBT Benefit' : calcCategory === 'panchayat-building' ? 'Community Building Waiver' : 'General household' },
+          { param: 'NET MAXIMUM CEILING', rate: `₹${bill.netTotal}.00`, unit: 'Total Citizen Payable', remarks: 'Zero operator tips or unbilled cash surge permitted' }
+        ],
+        filename: `CG_FSSM_Tariff_Gazette_${calcDistrict.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+      });
+      notifySuccess(`Official Tariff Schedule for ${calcDistrict} downloaded in PDF format.`, 'Gazette Schedule Downloaded');
+    } catch (err) {
+      console.warn('PDF export fallback:', err);
+    }
+  };
 
   // ----------------------------------------------------
   // 4. GIS MAP RADAR FILTER STATE
@@ -1118,49 +1215,59 @@ export const LandingPage = () => {
             {/* Calculator Form + Live Receipt Grid */}
             <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               {/* Form Controls (7 Cols) */}
-              <div className="lg:col-span-7 bg-white dark:bg-[#072238] rounded-2xl shadow-clean-md border border-slate-200/80 dark:border-white/10 p-6 lg:p-8 space-y-6">
+              <div className="lg:col-span-7 bg-white dark:bg-[#072238] rounded-2xl shadow-clean-md border border-slate-200/80 dark:border-white/10 p-6 lg:p-8 space-y-5">
+                {/* District & Development Block Dropdowns (Synced to all 33 districts) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* District */}
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-700 dark:text-slate-300 font-semibold" htmlFor="calc-district">
-                      District
+                    <label className="text-xs text-slate-700 dark:text-slate-300 font-semibold flex items-center justify-between" htmlFor="calc-district">
+                      <span>District (जिला)</span>
+                      <span className="text-[10px] text-teal-600 dark:text-teal-400 font-mono">33 Districts</span>
                     </label>
                     <select
                       id="calc-district"
                       value={calcDistrict}
                       onChange={(e) => setCalcDistrict(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-[#061A28] border border-slate-200 dark:border-white/15 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full bg-slate-50 dark:bg-[#061A28] border border-slate-200 dark:border-white/15 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
                     >
-                      <option value="durg">Durg (387 Panchayats)</option>
-                      <option value="raipur">Raipur (410 Panchayats)</option>
-                      <option value="bilaspur">Bilaspur (492 Panchayats)</option>
-                      <option value="rajnandgaon">Rajnandgaon (398 Panchayats)</option>
-                      <option value="bastar">Bastar (382 Panchayats)</option>
+                      {allDistricts.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   {/* Block */}
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-700 dark:text-slate-300 font-semibold" htmlFor="calc-block">
-                      Development Block
+                    <label className="text-xs text-slate-700 dark:text-slate-300 font-semibold flex items-center justify-between" htmlFor="calc-block">
+                      <span>Development Block (विकासखंड)</span>
+                      <span className="text-[10px] text-slate-500 font-mono">{availableBlocks.length} Blocks</span>
                     </label>
                     <select
                       id="calc-block"
                       value={calcBlock}
                       onChange={(e) => setCalcBlock(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-[#061A28] border border-slate-200 dark:border-white/15 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full bg-slate-50 dark:bg-[#061A28] border border-slate-200 dark:border-white/15 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
                     >
-                      <option value="patan">Patan Block</option>
-                      <option value="dhamdha">Dhamdha Block</option>
-                      <option value="bhilai-3">Bhilai-3 Gramin</option>
+                      {availableBlocks.length > 0 ? (
+                        availableBlocks.map((b) => (
+                          <option key={b} value={b}>
+                            {b}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="Main Block">Janpad Panchayat Block</option>
+                      )}
                     </select>
                   </div>
                 </div>
 
                 {/* Gram Panchayat Selection */}
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-700 dark:text-slate-300 font-semibold" htmlFor="calc-gp">
-                    Gram Panchayat
+                  <label className="text-xs text-slate-700 dark:text-slate-300 font-semibold flex items-center justify-between" htmlFor="calc-gp">
+                    <span>Gram Panchayat (ग्राम पंचायत)</span>
+                    <span className="text-[10px] text-slate-500 font-mono">{availableGps.length} Panchayats</span>
                   </label>
                   <select
                     id="calc-gp"
@@ -1168,35 +1275,44 @@ export const LandingPage = () => {
                     onChange={(e) => setCalcGp(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-[#061A28] border border-slate-200 dark:border-white/15 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
                   >
-                    <option value="jamgaon-r">Jamgaon (R) • 8.4 km to Patan FSTP</option>
-                    <option value="selud">Selud • 13.2 km to Patan FSTP</option>
-                    <option value="batang">Batang • 17.5 km to Patan FSTP</option>
-                    <option value="kurud">Kurud (Rural) • 6.0 km to Bhilai Plug-in</option>
+                    {availableGps.length > 0 ? (
+                      availableGps.map((gp) => (
+                        <option key={gp} value={gp}>
+                          {gp}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="Main Gram Panchayat">Main Gram Panchayat Center (LGD)</option>
+                    )}
                   </select>
                 </div>
 
                 {/* Containment Tank Size Radio Cards */}
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
-                    Containment Tank Type & Capacity
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
+                      Containment Tank Type & Capacity (टैंक क्षमता)
+                    </label>
+                    <span className="text-[10px] text-teal-600 dark:text-teal-400 font-mono">Dynamic Multipliers</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {[
-                      { val: 'single', title: 'Single Pit Tank', cap: '≤ 1,500 Litres', note: 'Standard Rural Base' },
-                      { val: 'medium', title: 'Standard Septic', cap: '1,500L – 3,000L', note: '+₹200 Volume Surcharge' },
-                      { val: 'commercial', title: 'Twin Pit / Commercial', cap: '> 3,000 Litres', note: '+₹500 Commercial Slab' },
+                      { val: '1500', title: 'Single Pit', cap: '≤ 1,500 L', note: 'Standard Rural Base (1.0x)' },
+                      { val: '2500', title: 'Standard Septic', cap: '2,500 Litres', note: 'Family Unit (1.2x)' },
+                      { val: '3500', title: 'Large Septic', cap: '3,500 Litres', note: 'Joint Family (1.4x)' },
+                      { val: '5000', title: 'Commercial', cap: '5,000 Litres', note: 'Community/Bulk (1.8x)' },
                     ].map((item) => (
                       <label
                         key={item.val}
                         onClick={() => setCalcTankSize(item.val)}
-                        className={`relative flex flex-col p-3.5 rounded-xl cursor-pointer transition-all border ${calcTankSize === item.val
+                        className={`relative flex flex-col p-3 rounded-xl cursor-pointer transition-all border ${calcTankSize === item.val
                           ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 dark:border-teal-400 shadow-sm'
                           : 'bg-slate-50 dark:bg-[#061A28] border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
                           }`}
                       >
                         <span className="font-display font-bold text-xs text-slate-900 dark:text-white">{item.title}</span>
                         <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{item.cap}</span>
-                        <span className={`font-mono text-[10px] font-semibold mt-2 ${calcTankSize === item.val ? 'text-teal-700 dark:text-teal-300' : 'text-slate-400'}`}>
+                        <span className={`font-mono text-[9px] font-semibold mt-2 ${calcTankSize === item.val ? 'text-teal-700 dark:text-teal-300' : 'text-slate-400'}`}>
                           {item.note}
                         </span>
                       </label>
@@ -1204,11 +1320,54 @@ export const LandingPage = () => {
                   </div>
                 </div>
 
-                {/* Access Pathway / Road Width Selector */}
+                {/* Distance Slider & Emergency Checkbox */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/10">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <label className="text-slate-700 dark:text-slate-300 font-semibold">
+                        Estimated Distance to Plant
+                      </label>
+                      <span className="font-mono font-bold text-teal-700 dark:text-teal-300">
+                        {calcDistanceKm} km
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="2"
+                      max="35"
+                      step="0.5"
+                      value={calcDistanceKm}
+                      onChange={(e) => setCalcDistanceKm(Number(e.target.value))}
+                      className="w-full accent-teal-600 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                      <span>2 km</span>
+                      <span>Base Perimeter: {bill.baseDistanceKm} km</span>
+                      <span>35 km</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col justify-center space-y-1 pt-1 sm:pt-0">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={calcEmergency}
+                        onChange={(e) => setCalcEmergency(e.target.checked)}
+                        className="rounded text-amber-600 focus:ring-amber-500"
+                      />
+                      <span>12-Hour Priority Emergency (+{Math.round(((bill.emergencyMultiplier || 1.25) - 1) * 100)}%)</span>
+                    </label>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 pl-6">
+                      For rapid overflow containment dispatch.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Access Pathway / Road Width & Subsidy Category */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-700 dark:text-slate-300 font-semibold" htmlFor="calc-access">
-                      Village Approach Road
+                      Village Approach Road (पहुंच मार्ग)
                     </label>
                     <select
                       id="calc-access"
@@ -1216,15 +1375,15 @@ export const LandingPage = () => {
                       onChange={(e) => setCalcAccess(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-[#061A28] border border-slate-200 dark:border-white/15 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
                     >
-                      <option value="wide">Standard Road (&gt; 3.0 Metres wide)</option>
-                      <option value="narrow">Narrow Alley (&lt; 3.0m • Mini Tractor Req.)</option>
+                      <option value="wide">Standard Road (&gt; 3.0m wide • Heavy Tanker)</option>
+                      <option value="narrow">Narrow Gali / Alley (&lt; 3.0m • Mini-Unit Req. +₹150)</option>
                     </select>
                   </div>
 
                   {/* Socio-Economic / Subsidy Category */}
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-700 dark:text-slate-300 font-semibold" htmlFor="calc-category">
-                      Household Category
+                      Household Category (सब्सिडी श्रेणी)
                     </label>
                     <select
                       id="calc-category"
@@ -1232,9 +1391,9 @@ export const LandingPage = () => {
                       onChange={(e) => setCalcCategory(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-[#061A28] border border-slate-200 dark:border-white/15 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
                     >
-                      <option value="bpl">BPL / Antyodaya (SBM-G ₹400 Subsidy)</option>
-                      <option value="general">General Resident (Standard Cap)</option>
-                      <option value="panchayat-building">Institutional / GP Building (₹600 Subsidy)</option>
+                      <option value="bpl">BPL / Antyodaya / PM-Awas (SBM-G ₹400 Subsidy)</option>
+                      <option value="general">General Rural Household (Standard Cap)</option>
+                      <option value="panchayat-building">Gram Panchayat / Govt School (₹600 Subsidy)</option>
                     </select>
                   </div>
                 </div>
@@ -1246,51 +1405,86 @@ export const LandingPage = () => {
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/10">
                     <div className="flex items-center gap-2">
                       <FileText size={20} className="text-teal-600 dark:text-teal-400" />
-                      <h3 className="font-display font-bold text-base text-slate-900 dark:text-white">Government Tariffs</h3>
+                      <div>
+                        <h3 className="font-display font-bold text-base text-slate-900 dark:text-white">Government Tariffs</h3>
+                        <div className="text-[10px] text-teal-600 dark:text-teal-400 font-mono font-semibold">{calcDistrict}</div>
+                      </div>
                     </div>
-                    <span className="font-mono text-[10px] uppercase font-bold bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 px-2 py-0.5 rounded">
-                      Fixed Cap
+                    <span className="font-mono text-[10px] uppercase font-bold bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 px-2 py-0.5 rounded border border-teal-300 dark:border-teal-700/50">
+                      Capped Rates
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 py-3">
-                    Itemized billing scheduled under Department of Panchayat Notification No. 881/SBM-G/2024.
+                  <p className="text-xs text-slate-500 dark:text-slate-400 py-2.5">
+                    Itemized billing calculated dynamically under official notification rules for <strong>{calcDistrict}</strong>.
                   </p>
 
                   {/* Line Items */}
-                  <div className="space-y-3 text-xs text-slate-800 dark:text-slate-200">
+                  <div className="space-y-2.5 text-xs text-slate-800 dark:text-slate-200 font-mono">
                     <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-white/5">
-                      <span className="text-slate-500 dark:text-slate-400">Base Evacuation Fee (Vacuum Unit)</span>
-                      <span className="font-mono font-semibold">₹{bill.baseFee.toFixed(2)}</span>
+                      <div>
+                        <span className="text-slate-600 dark:text-slate-300 block">Base Evacuation Fee</span>
+                        <span className="text-[10px] text-slate-400 font-normal">First {bill.baseDistanceKm} km perimeter included</span>
+                      </div>
+                      <span className="font-bold">₹{bill.baseFee.toFixed(2)}</span>
                     </div>
 
                     <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-white/5">
-                      <span className="text-slate-500 dark:text-slate-400">Capacity Tier Surcharge</span>
-                      <span className="font-mono font-semibold">₹{bill.capacitySurcharge.toFixed(2)}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-white/5">
-                      <span className="text-slate-500 dark:text-slate-400">Transit & Distance ({bill.distanceKm} km to Decant Bay)</span>
-                      <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                        {bill.distanceSurcharge > 0 ? `+₹${bill.distanceSurcharge.toFixed(2)}` : 'FREE (≤ 15 km)'}
+                      <div>
+                        <span className="text-slate-600 dark:text-slate-300 block">Capacity Surcharge ({calcTankSize} L)</span>
+                        <span className="text-[10px] text-slate-400 font-normal">{bill.tankMultiplier}x volume multiplier</span>
+                      </div>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        {bill.capacitySurcharge > 0 ? `+₹${bill.capacitySurcharge.toFixed(2)}` : '₹0.00 (Base Slab)'}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-white/5">
-                      <span className="text-slate-500 dark:text-slate-400">Narrow Alley Mini-Unit Add-on</span>
-                      <span className="font-mono font-semibold">₹{bill.accessSurcharge.toFixed(2)}</span>
+                      <div>
+                        <span className="text-slate-600 dark:text-slate-300 block">Distance Haul ({bill.distanceKm} km to Facility)</span>
+                        <span className="text-[10px] text-slate-400 font-normal">
+                          {bill.extraKm > 0 ? `${bill.extraKm} km beyond base @ ₹${bill.ratePerKm}/km` : `Within ${bill.baseDistanceKm} km free radius`}
+                        </span>
+                      </div>
+                      <span className={`font-semibold ${bill.distanceSurcharge > 0 ? 'text-slate-900 dark:text-white' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                        {bill.distanceSurcharge > 0 ? `+₹${bill.distanceSurcharge.toFixed(2)}` : `FREE (≤ ${bill.baseDistanceKm} km)`}
+                      </span>
                     </div>
 
-                    <div className="flex items-center justify-between py-1 text-emerald-700 dark:text-emerald-300 font-semibold">
-                      <span className="flex items-center gap-1">
-                        <Award size={14} />
-                        <span>SBM-G Rural Subsidy</span>
-                      </span>
-                      <span className="font-mono font-bold">-₹{bill.subsidy.toFixed(2)}</span>
+                    <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-white/5">
+                      <div>
+                        <span className="text-slate-600 dark:text-slate-300 block">Gram Panchayat Sanitation Cess</span>
+                        <span className="text-[10px] text-slate-400 font-normal">Credited to Village Swachhata Fund</span>
+                      </div>
+                      <span className="font-semibold">₹{bill.gpCess.toFixed(2)}</span>
                     </div>
+
+                    {bill.accessSurcharge > 0 && (
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-white/5">
+                        <span className="text-slate-600 dark:text-slate-300">Narrow Alley Mini-Unit Add-on</span>
+                        <span className="font-semibold">+₹{bill.accessSurcharge.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {bill.emergencySurcharge > 0 && (
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-white/5 text-amber-700 dark:text-amber-400 font-semibold">
+                        <span>12-Hour Priority Surcharge ({Math.round(((bill.emergencyMultiplier || 1.25) - 1) * 100)}%)</span>
+                        <span>+₹{bill.emergencySurcharge.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {bill.subsidy > 0 && (
+                      <div className="flex items-center justify-between py-1 text-emerald-700 dark:text-emerald-300 font-semibold">
+                        <span className="flex items-center gap-1">
+                          <Award size={14} />
+                          <span>SBM-G Rural Subsidy</span>
+                        </span>
+                        <span className="font-bold">-₹{bill.subsidy.toFixed(2)}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Grand Total */}
-                  <div className="mt-6 pt-4 bg-slate-50 dark:bg-[#061A28] p-4 rounded-xl flex items-center justify-between border border-slate-200/60 dark:border-white/10">
+                  <div className="mt-5 pt-3.5 bg-slate-50 dark:bg-[#061A28] p-4 rounded-xl flex items-center justify-between border border-slate-200/60 dark:border-white/10">
                     <div>
                       <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
                         Net Payable to Operator
@@ -1308,26 +1502,23 @@ export const LandingPage = () => {
                 </div>
 
                 {/* CTAs */}
-                <div className="mt-6 flex flex-col gap-2.5">
+                <div className="mt-5 flex flex-col gap-2">
                   <Link
-                    to="/book"
-                    className="w-full py-3 px-4 rounded-full bg-teal-600 hover:bg-teal-500 text-white font-bold text-sm transition-all shadow-clean-md flex items-center justify-center gap-2 hover:scale-[1.02]"
+                    to={`/book?district=${encodeURIComponent(calcDistrict)}&block=${encodeURIComponent(calcBlock)}&gp=${encodeURIComponent(calcGp)}`}
+                    className="w-full py-3 px-4 rounded-full bg-teal-600 hover:bg-teal-500 text-white font-bold text-sm transition-all shadow-clean-md flex items-center justify-center gap-2 hover:scale-[1.01]"
                   >
                     <CheckCircle size={18} />
                     <span>Proceed with Official Booking</span>
                   </Link>
 
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      alert('Gazette Notification No. CG-SBMG-2024-T09 downloaded.');
-                    }}
+                  <button
+                    type="button"
+                    onClick={handleDownloadGazette}
                     className="w-full py-2 px-4 rounded-full bg-transparent hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5"
                   >
-                    <ExternalLink size={14} />
+                    <FileText size={14} />
                     <span>Download Notified Tariff Gazette Schedule (PDF)</span>
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
