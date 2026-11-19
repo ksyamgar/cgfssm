@@ -720,6 +720,94 @@ const INITIAL_REQUESTS = [
       { step: 4, action: 'DISPOSED_AT_FSTP', actor: 'FSTP Operator', time: '2026-09-24T14:45:00.000Z', note: 'QR Manifest #MNF-9902 signed' },
       { step: 5, action: 'CLOSED_WITH_RATING', actor: 'Citizen', time: '2026-09-24T16:30:00.000Z', note: 'Rating 5/5' }
     ]
+  },
+  {
+    id: 'req_citizen_ongoing',
+    requestNo: 'CG-D02-B07-GP11-2026-000109',
+    userId: 'usr_citizen',
+    citizenName: 'Bhupendra Chandrakar',
+    citizenPhone: '9826198765',
+    district: 'Raipur (378)',
+    block: 'Dharsiwa (3836)',
+    gp: 'Mandir Hasaud (124805)',
+    village: 'Mandir Hasaud (444102)',
+    habitation: 'Ward 02, Sahu Para',
+    tankType: 'CONVENTIONAL_TWO_CHAMBER',
+    tankVolumeLitres: 3000,
+    roadWidthMeters: 4.0,
+    distanceFromRoadMeters: 10,
+    isEmergency: false,
+    scheduledDate: '2026-11-20',
+    status: FSM_STATUS.VEHICLE_ASSIGNED,
+    estimatedCost: 1400,
+    paymentMethod: 'UPI',
+    paymentStatus: 'PAID',
+    assignedVendorId: 'ven_01',
+    assignedVendorName: 'Shree Mahamaya Sanitation Services',
+    assignedVehicleId: 'veh_01',
+    assignedVehicleNo: 'CG-04-ME-4821',
+    assignedDriverId: 'usr_driver',
+    assignedDriverName: 'Ramesh Patel',
+    driverPhone: '9826100008',
+    assignedDriverPhone: '9826100008',
+    assignedWorkerId: 'usr_worker',
+    assignedWorkerName: 'Santosh Markam',
+    targetFstpId: 'fstp_01',
+    targetFstpName: 'Arang Cluster Rural FSTP',
+    verificationCode: '4109',
+    otp: '4109',
+    lat: 21.2514,
+    lng: 81.7482,
+    createdAt: '2026-11-19T06:30:00.000Z',
+    updatedAt: '2026-11-19T07:15:00.000Z',
+    history: [
+      { step: 1, action: 'REQUEST_SUBMITTED', actor: 'Bhupendra Chandrakar (Citizen)', time: '2026-11-19T06:30:00.000Z', note: 'Booked via Online Portal' },
+      { step: 2, action: 'GP_ACKNOWLEDGED', actor: 'Smt. Gayatri Devi (GP Operator)', time: '2026-11-19T06:45:00.000Z', note: 'Demand registered and verified' },
+      { step: 3, action: 'VEHICLE_ASSIGNED', actor: 'Operations Coordinator', time: '2026-11-19T07:15:00.000Z', note: 'Vehicle CG-04-ME-4821 assigned with driver Ramesh Patel. OTP 4109 generated.' }
+    ]
+  },
+  {
+    id: 'req_citizen_past',
+    requestNo: 'CG-D02-B07-GP11-2025-000085',
+    userId: 'usr_citizen',
+    citizenName: 'Bhupendra Chandrakar',
+    citizenPhone: '9826198765',
+    district: 'Raipur (378)',
+    block: 'Dharsiwa (3836)',
+    gp: 'Mandir Hasaud (124805)',
+    village: 'Mandir Hasaud (444102)',
+    habitation: 'Ward 02, Sahu Para',
+    tankType: 'CONVENTIONAL_TWO_CHAMBER',
+    tankVolumeLitres: 3000,
+    roadWidthMeters: 4.0,
+    distanceFromRoadMeters: 10,
+    isEmergency: false,
+    scheduledDate: '2025-10-15',
+    status: FSM_STATUS.CLOSED,
+    estimatedCost: 1400,
+    paymentMethod: 'UPI',
+    paymentStatus: 'PAID',
+    assignedVendorId: 'ven_01',
+    assignedVendorName: 'Shree Mahamaya Sanitation Services',
+    assignedVehicleId: 'veh_01',
+    assignedVehicleNo: 'CG-04-ME-4821',
+    assignedDriverId: 'usr_driver',
+    assignedDriverName: 'Ramesh Patel',
+    driverPhone: '9826100008',
+    assignedDriverPhone: '9826100008',
+    targetFstpId: 'fstp_01',
+    targetFstpName: 'Arang Cluster Rural FSTP',
+    decantedVolumeLitres: 3000,
+    rating: 5,
+    feedbackText: 'Super fast service and very professional crew. No mess left behind!',
+    createdAt: '2025-10-14T08:00:00.000Z',
+    updatedAt: '2025-10-15T15:30:00.000Z',
+    history: [
+      { step: 1, action: 'REQUEST_SUBMITTED', actor: 'Bhupendra Chandrakar', time: '2025-10-14T08:00:00.000Z' },
+      { step: 2, action: 'CLEANING_COMPLETED', actor: 'Ramesh Patel (Driver)', time: '2025-10-15T11:30:00.000Z' },
+      { step: 3, action: 'DISPOSED_AT_FSTP', actor: 'Dileep Kumar Soni (FSTP)', time: '2025-10-15T13:45:00.000Z' },
+      { step: 4, action: 'CLOSED_WITH_RATING', actor: 'Bhupendra Chandrakar', time: '2025-10-15T15:30:00.000Z', note: 'Rating 5/5' }
+    ]
   }
 ];
 
@@ -791,7 +879,8 @@ export const setStorageData = (key, value) => {
 
 // Seed initial data if not present
 export const initializeStorage = () => {
-  if (!localStorage.getItem(STORAGE_KEYS.REQUESTS)) {
+  const existingReqs = getStorageData(STORAGE_KEYS.REQUESTS, null);
+  if (!existingReqs || !Array.isArray(existingReqs) || !existingReqs.some(r => r.citizenPhone === '9826198765')) {
     setStorageData(STORAGE_KEYS.REQUESTS, INITIAL_REQUESTS);
   }
   if (!localStorage.getItem(STORAGE_KEYS.VEHICLES)) {
