@@ -224,7 +224,7 @@ export const ROLE_CONFIG = {
 export const MOCK_USERS = [
   {
     id: 'usr_superadmin',
-    name: 'Rajesh Sharma',
+    name: 'Raj Yamgar',
     role: ROLES.SUPER_ADMIN,
     phone: '9826100001',
     email: 'admin.fssm@cg.gov.in',

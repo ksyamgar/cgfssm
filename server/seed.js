@@ -44,7 +44,7 @@ export const seedDatabase = async (force = false) => {
     const users = [
       {
         id: 'usr_superadmin',
-        name: 'Rajesh Sharma',
+        name: 'Raj Yamgar',
         role: 'SUPER_ADMIN',
         phone: '9826100001',
         email: 'admin.fssm@cg.gov.in',
@@ -581,7 +581,7 @@ export const seedDatabase = async (force = false) => {
         entity_id: 'sys_01',
         entity_type: 'SYSTEM',
         action: 'SYSTEM_BOOT',
-        actor_name: 'Rajesh Sharma',
+        actor_name: 'Raj Yamgar',
         actor_role: 'SUPER_ADMIN',
         ip: '10.20.0.1',
         details: 'CG Rural FSSM Platform v1.0 initialized with SQLite WAL mode.'

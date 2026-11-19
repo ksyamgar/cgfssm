@@ -89,17 +89,17 @@ NODE_ENV=development
 
 You can test different role-based views using the pre-seeded accounts:
 
-| Role | Username / Mobile / Email | Password | Access Scope |
-| :--- | :--- | :--- | :--- |
-| **Super Admin** | `9826100001` or `admin.fssm@cg.gov.in` | `Admin@2026` | Entire State, Master Settings, Tariffs |
-| **State Officer** | `9826100002` or `state.officer@cg.gov.in` | `Officer@2026` | State Monitoring, Analytics, KPIs |
-| **District Coordinator** | `9826100003` or `collector.raipur@cg.gov.in` | `Officer@2026` | Raipur District Management |
-| **Block Coordinator** | `9826100004` or `sbm.dharsiwa@cg.gov.in` | `Officer@2026` | Dharsiwa Block Verification & Queue |
-| **GP Operator / VLE** | `9826100005` or `sarpanch.mandirhasaud@cg.gov.in` | `Officer@2026` | Mandir Hasaud Gram Panchayat |
-| **FSTP Operator** | `9826100006` or `fstp.arang@cg.gov.in` | `Officer@2026` | Sludge Receipt, Testing, Co-composting |
-| **Vendor Admin** | `9826100007` or `shiv@mahamayaclean.in` | `Officer@2026` | Fleet Dispatch, Vehicle Health |
-| **Driver / Pilot** | `9826100008` or `driver.ramesh@cg.gov.in` | `Driver@2026` | Trip Logs, GPS Check-ins, Desludging |
-| **Citizen** | `9826100010` or `citizen.devendra@gmail.com` | `Citizen@2026` | Booking Requests, Tracking, Rating |
+| Role | User Name | Username / Mobile / Email | Password | Access Scope |
+| :--- | :--- | :--- | :--- | :--- |
+| **Super Admin** | Raj Yamgar | `9826100001` or `admin.fssm@cg.gov.in` | `Admin@2026` | Entire State, Master Settings, Tariffs |
+| **State Officer** | Dr. Alok Verma, IAS | `9826100002` or `state.officer@cg.gov.in` | `Officer@2026` | State Monitoring, Analytics, KPIs |
+| **District Coordinator** | Priyanka Baghel | `9826100003` or `collector.raipur@cg.gov.in` | `Officer@2026` | Raipur District Management |
+| **Block Coordinator** | Mahendra Netam | `9826100004` or `sbm.dharsiwa@cg.gov.in` | `Officer@2026` | Dharsiwa Block Verification & Queue |
+| **GP Operator / VLE** | Smt. Gayatri Devi Sahu | `9826100005` or `sarpanch.mandirhasaud@cg.gov.in` | `Officer@2026` | Mandir Hasaud Gram Panchayat |
+| **FSTP Operator** | Dileep Kumar Soni | `9826100006` or `fstp.arang@cg.gov.in` | `Officer@2026` | Sludge Receipt, Testing, Co-composting |
+| **Vendor Admin** | Shiv Kumar Sahu | `9826100007` or `shiv@mahamayaclean.in` | `Officer@2026` | Fleet Dispatch, Vehicle Health |
+| **Driver / Pilot** | Ramesh Patel | `9826100008` or `driver.ramesh@cg.gov.in` | `Driver@2026` | Trip Logs, GPS Check-ins, Desludging |
+| **Citizen** | Bhupendra Chandrakar | `9826198765` or `bhupendra.farmer@gmail.com` | `Citizen@2026` | Booking Requests, Tracking, Rating |
 
 ---
 

@@ -184,17 +184,17 @@ npm run dev
 
 The platform auto-seeds standard users across administrative tiers on initial launch:
 
-| Role | Username / Mobile / Email | Password | Scope |
-| :--- | :--- | :--- | :--- |
-| **Super Admin** | `9826100001` / `admin.fssm@cg.gov.in` | `Admin@2026` | State HQ, System Settings, Tariff Rates |
-| **State Officer** | `9826100002` / `state.officer@cg.gov.in` | `Officer@2026` | State Director SBM-G, KPIs & Trends |
-| **District Coordinator** | `9826100003` / `collector.raipur@cg.gov.in` | `Officer@2026` | Raipur District Collector Dashboard |
-| **Block Coordinator** | `9826100004` / `sbm.dharsiwa@cg.gov.in` | `Officer@2026` | Dharsiwa Janpad Verification & Queue |
-| **GP Operator / VLE** | `9826100005` / `sarpanch.mandirhasaud@cg.gov.in` | `Officer@2026` | Mandir Hasaud Gram Panchayat VLE Desk |
-| **FSTP Operator** | `9826100006` / `fstp.arang@cg.gov.in` | `Officer@2026` | Arang Cluster FSTP Influx & Lab Tests |
-| **Vendor Admin** | `9826100007` / `shiv@mahamayaclean.in` | `Officer@2026` | Shree Mahamaya Sanitation Fleet Dispatch |
-| **Driver / Pilot** | `9826100008` / `driver.ramesh@cg.gov.in` | `Driver@2026` | Vehicle `CG-04-ME-4821` Job Card |
-| **Citizen Beneficiary**| `9826100010` / `citizen.devendra@gmail.com` | `Citizen@2026` | Mandir Hasaud Citizen Portal |
+| Role | User Name | Username / Mobile / Email | Password | Scope |
+| :--- | :--- | :--- | :--- | :--- |
+| **Super Admin** | Raj Yamgar | `9826100001` / `admin.fssm@cg.gov.in` | `Admin@2026` | State HQ, System Settings, Tariff Rates |
+| **State Officer** | Dr. Alok Verma, IAS | `9826100002` / `state.officer@cg.gov.in` | `Officer@2026` | State Director SBM-G, KPIs & Trends |
+| **District Coordinator** | Priyanka Baghel | `9826100003` / `collector.raipur@cg.gov.in` | `Officer@2026` | Raipur District Collector Dashboard |
+| **Block Coordinator** | Mahendra Netam | `9826100004` / `sbm.dharsiwa@cg.gov.in` | `Officer@2026` | Dharsiwa Janpad Verification & Queue |
+| **GP Operator / VLE** | Smt. Gayatri Devi Sahu | `9826100005` / `sarpanch.mandirhasaud@cg.gov.in` | `Officer@2026` | Mandir Hasaud Gram Panchayat VLE Desk |
+| **FSTP Operator** | Dileep Kumar Soni | `9826100006` / `fstp.arang@cg.gov.in` | `Officer@2026` | Arang Cluster FSTP Influx & Lab Tests |
+| **Vendor Admin** | Shiv Kumar Sahu | `9826100007` / `shiv@mahamayaclean.in` | `Officer@2026` | Shree Mahamaya Sanitation Fleet Dispatch |
+| **Driver / Pilot** | Ramesh Patel | `9826100008` / `driver.ramesh@cg.gov.in` | `Driver@2026` | Vehicle `CG-04-ME-4821` Job Card |
+| **Citizen Beneficiary**| Bhupendra Chandrakar | `9826198765` / `bhupendra.farmer@gmail.com` | `Citizen@2026` | Mandir Hasaud Citizen Portal |
 
 ---
 

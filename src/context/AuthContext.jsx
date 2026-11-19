@@ -17,12 +17,26 @@ export const AuthProvider = ({ children }) => {
   // Store all users in storage or initial mock users
   const [users, setUsers] = useState(() => {
     const loaded = getStorageData(STORAGE_KEYS.PEOPLE, MOCK_USERS);
-    return Array.isArray(loaded) ? loaded.map(u => ({ ...u, areaType: u.areaType || 'RURAL' })) : MOCK_USERS;
+    if (Array.isArray(loaded)) {
+      return loaded.map(u => {
+        if (u.id === 'usr_superadmin' && (u.name === 'Rajesh Sharma' || !u.name)) {
+          return { ...u, name: 'Raj Yamgar', areaType: u.areaType || 'RURAL' };
+        }
+        return { ...u, areaType: u.areaType || 'RURAL' };
+      });
+    }
+    return MOCK_USERS;
   });
 
   const [currentUser, setCurrentUser] = useState(() => {
     const loaded = getStorageData('cg_fssm_auth_user', MOCK_USERS[0]);
-    return loaded ? { ...loaded, areaType: loaded.areaType || 'RURAL' } : MOCK_USERS[0];
+    if (loaded) {
+      if (loaded.id === 'usr_superadmin' && (loaded.name === 'Rajesh Sharma' || !loaded.name)) {
+        return { ...loaded, name: 'Raj Yamgar', areaType: loaded.areaType || 'RURAL' };
+      }
+      return { ...loaded, areaType: loaded.areaType || 'RURAL' };
+    }
+    return MOCK_USERS[0];
   });
 
   const [loading, setLoading] = useState(false);
